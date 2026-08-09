@@ -26,7 +26,8 @@
   <img alt="Python" src="https://img.shields.io/badge/Python-3.10%2B-blue">
   <img alt="FastAPI" src="https://img.shields.io/badge/Backend-FastAPI-009688">
   <img alt="PyTorch" src="https://img.shields.io/badge/Deep%20Learning-PyTorch-EE4C2C">
-  <img alt="Hugging Face" src="https://img.shields.io/badge/Deployment-Hugging%20Face-yellow">
+  <img alt="Gemma" src="https://img.shields.io/badge/LLM-Gemma-blueviolet">
+  <img alt="Deployment" src="https://img.shields.io/badge/Deployment-Hugging%20Face-yellow">
   <img alt="License" src="https://img.shields.io/badge/License-MIT-green">
 </p>
 
@@ -48,7 +49,7 @@
 - [8. AI Analysis Pipeline](#8-ai-analysis-pipeline)
 - [9. CNN Spoof Detection Model](#9-cnn-spoof-detection-model)
 - [10. Research Findings](#10-research-findings)
-- [11. Deployment Strategy](#11-deployment-strategy)
+- [11. Current Deployment Strategy](#11-current-deployment-strategy)
 - [12. Technology Stack](#12-technology-stack)
 - [13. Repository Structure](#13-repository-structure)
 - [14. Quick Start](#14-quick-start)
@@ -68,7 +69,7 @@
 
 GemmaShield is a multimodal AI safety system designed to help older adults, family members, and community workers respond to suspicious voice messages and potential AI voice scams.
 
-The system combines:
+The system integrates:
 
 - CNN-based voice spoof detection;
 - Faster-Whisper speech transcription;
@@ -84,11 +85,11 @@ The project originally started as a binary classifier for distinguishing AI-gene
 
 However, real-world experiments revealed an important problem:
 
-> Strong performance on a laboratory benchmark did not automatically transfer to mobile recordings and real-world spoofing conditions.
+> Strong performance on a laboratory benchmark did not automatically transfer to mobile recordings and realistic spoofing conditions.
 
-This finding changed the project.
+This finding changed the direction of the project.
 
-Instead of treating the CNN prediction as the final answer, the current system treats the model score as **one piece of acoustic evidence** and combines it with:
+Instead of treating the CNN prediction as a final answer, the current system treats the model score as **one piece of acoustic evidence** and combines it with:
 
 ```text
 Acoustic Evidence
@@ -104,26 +105,26 @@ LLM Reasoning
 Human Verification
 ```
 
-The project therefore explores both:
+The project therefore explores two connected directions:
 
-**AI research**
+### AI Research
 
 ```text
 Deepfake Speech Detection
 Domain Shift
 Generalization
 Robustness
+Unseen Attack Detection
 ```
 
-and:
-
-**AI application engineering**
+### AI Application Engineering
 
 ```text
-Backend
-Workflow
+Backend Development
+Workflow Design
 LLM Integration
-Human-in-the-loop Safety
+Fallback Logic
+Human-in-the-Loop Safety
 Deployment
 ```
 
@@ -170,9 +171,9 @@ The design follows one central principle:
 
 ## 3. From a Voice Classifier to a Safety System
 
-### Initial System
+### Initial Version
 
-The first version focused mainly on AI-generated voice detection:
+The first version of the project focused on:
 
 ```text
 Audio
@@ -186,9 +187,9 @@ Real / Fake
 
 This was useful for model experimentation, but real-world evaluation revealed limitations.
 
-### Current System
+### Current Version
 
-The system gradually evolved into:
+The current system implements a broader workflow:
 
 ```text
 Suspicious Audio
@@ -228,7 +229,7 @@ The main engineering lesson is:
 - fixed-length waveform processing;
 - 64-bin Log-Mel spectrogram extraction;
 - custom CNN2D spoof detector;
-- real / spoof probability estimation;
+- real/spoof probability estimation;
 - Faster-Whisper speech recognition;
 - scam-related risk-signal extraction;
 - evidence-source confidence analysis;
@@ -237,7 +238,7 @@ The main engineering lesson is:
 
 ### Risk Levels
 
-The current prototype uses four safety levels:
+The prototype uses four safety levels:
 
 ```text
 HIGH
@@ -245,8 +246,6 @@ MEDIUM
 VERIFY
 LOW
 ```
-
-Where:
 
 | Level | Meaning |
 |---|---|
@@ -257,11 +256,9 @@ Where:
 
 `LOW` does **not** mean that the system has proven the audio to be safe.
 
----
-
 ### Product Workflow
 
-The application supports:
+The application currently supports:
 
 - older-adult accounts;
 - family/community helper accounts;
@@ -277,11 +274,10 @@ The application supports:
 - audio upload;
 - evidence review;
 - unbinding and trusted-contact replacement;
-- simulated notification delivery;
+- simulated SMS / WeChat / app-push notifications;
+- local prototype persistence;
 - health monitoring;
 - Hugging Face deployment.
-
----
 
 ### Human-Centered Design
 
@@ -294,13 +290,13 @@ The older-adult interface emphasizes:
 - clear risk categories;
 - actionable safety suggestions.
 
-The helper interface provides more detailed technical evidence.
+The helper interface provides more detailed evidence and analysis.
 
 ---
 
 ## 5. User Roles and Workflow
 
-### Older-Adult Side
+### 5.1 Older-Adult Side
 
 The older adult can:
 
@@ -315,9 +311,7 @@ The older adult can:
 
 The older-adult interface intentionally avoids requiring the user to interpret raw AI probability scores.
 
----
-
-### Family / Community Helper Side
+### 5.2 Family / Community Helper Side
 
 A trusted helper can:
 
@@ -334,16 +328,12 @@ A trusted helper can:
 11. review the detailed report;
 12. help the older adult verify the situation.
 
----
+### 5.3 Two-Stage Analysis
 
-### Two-Stage AI Analysis
-
-The system separates evidence extraction from deeper reasoning.
-
-#### Stage 1
+#### Stage 1 — Evidence Extraction
 
 ```text
-CNN
+CNN Spoof Detection
 +
 Faster-Whisper
 +
@@ -352,7 +342,7 @@ Risk Signal Extraction
 Evidence Source Confidence
 ```
 
-#### Stage 2
+#### Stage 2 — Risk Reasoning
 
 ```text
 Gemma Risk Reasoning
@@ -373,23 +363,25 @@ is used instead.
 ### Home Page
 
 <p align="center">
-  <img src="assets/homepage.png" alt="GemmaShield Home Page" width="92%">
+  <img src="assets/homepage.png"
+       alt="GemmaShield Home Page"
+       width="92%">
 </p>
-
----
 
 ### Older-Adult Interface
 
 <p align="center">
-  <img src="assets/elder-interface.png" alt="GemmaShield Older Adult Interface" width="92%">
+  <img src="assets/elder-interface.png"
+       alt="GemmaShield Older Adult Interface"
+       width="92%">
 </p>
-
----
 
 ### Family / Community Helper Interface
 
 <p align="center">
-  <img src="assets/helper-interface.png" alt="GemmaShield Family and Community Helper Interface" width="92%">
+  <img src="assets/helper-interface.png"
+       alt="GemmaShield Family and Community Helper Interface"
+       width="92%">
 </p>
 
 ---
@@ -404,7 +396,7 @@ is used instead.
 
 🎥 [Watch the complete workflow demonstration](assets/demo-video.mp4)
 
-The video demonstrates the full interaction because the application contains multiple states that cannot be shown clearly through one screenshot.
+The application contains multiple states that cannot be demonstrated clearly through one static screenshot.
 
 The complete workflow includes:
 
@@ -486,8 +478,6 @@ flowchart TD
     V --> T
 ```
 
----
-
 ### Application Layers
 
 | Layer | Responsibility |
@@ -512,14 +502,12 @@ Audio is converted to:
 Sample Rate: 16,000 Hz
 Channels: Mono
 Target Length: 64,000 samples
-Approximate Window: 4 seconds
+Approximate Analysis Window: 4 seconds
 ```
 
 The waveform is normalized before feature extraction.
 
-FFmpeg is used when audio format conversion is required.
-
----
+FFmpeg is used when format conversion is required.
 
 ### 8.2 Log-Mel Spectrogram
 
@@ -543,13 +531,11 @@ Log Transform
 Feature Normalization
 ```
 
----
-
 ### 8.3 CNN Acoustic Evidence
 
 The CNN produces a binary logit.
 
-The application converts it to probabilities using:
+The application converts it to:
 
 ```text
 Real Probability = sigmoid(logit)
@@ -559,17 +545,13 @@ Spoof Probability = 1 - Real Probability
 
 The result is treated as acoustic evidence rather than a final safety judgment.
 
----
-
 ### 8.4 Faster-Whisper Transcription
 
 Faster-Whisper extracts speech content.
 
-The current deployment is designed to remain lightweight enough for a Hugging Face Space environment.
+Semantic information can provide evidence that the CNN cannot capture.
 
-The transcript provides semantic evidence that the CNN cannot capture.
-
-For example:
+Examples:
 
 ```text
 "Send the money immediately."
@@ -581,13 +563,11 @@ For example:
 "Give me the verification code."
 ```
 
-may contain strong fraud indicators even when acoustic evidence is uncertain.
-
----
+may contain strong scam indicators even when acoustic evidence is uncertain.
 
 ### 8.5 Scam Risk Signals
 
-The application checks for risk signals related to:
+The application checks for signals related to:
 
 ```text
 Money Transfer
@@ -601,26 +581,22 @@ Bank Accounts
 
 These signals provide structured information for later reasoning.
 
-They are not used as a replacement for the LLM.
-
----
+They are not used as a replacement for the language model.
 
 ### 8.6 Evidence Source Confidence
 
-One of the most important deployment findings is that the audio source affects model reliability.
-
-The system therefore records how the evidence was obtained.
+One important deployment finding is that the audio source affects acoustic reliability.
 
 | Evidence Source | Confidence Treatment | Main Concern |
 |---|---|---|
 | Browser / microphone recording | Needs human review | Replay, room acoustics, device noise |
 | Older-adult uploaded audio | Medium | Unknown source processing |
-| Social media voice message | Medium | Compression |
+| Social-media voice message | Medium | Compression |
 | Voicemail | Medium | Codec and channel effects |
-| Saved call recording | Relatively higher | Telephone channel effects |
+| Saved call recording | Relatively higher | Telephone-channel effects |
 | Helper-uploaded evidence | Relatively higher | Depends on original source |
 
-A microphone re-recording may change acoustic artifacts.
+A microphone re-recording may modify acoustic artifacts.
 
 Therefore:
 
@@ -634,11 +610,9 @@ does not automatically become:
 Safe
 ```
 
----
-
 ### 8.7 Gemma Risk Reasoning
 
-Gemma receives structured evidence such as:
+Gemma receives structured evidence including:
 
 ```text
 Real Probability
@@ -665,30 +639,30 @@ One-Sentence Warning
 
 Gemma is used as a reasoning and communication layer.
 
-It does not replace the CNN and does not “correct” the CNN prediction.
-
----
+It does not replace the CNN and is not presented as a final authority.
 
 ### 8.8 Fallback Reasoning
 
-The application includes local conservative reasoning.
-
-It is activated when:
+Local conservative reasoning is activated when:
 
 ```text
 HF_TOKEN is missing
-Gemma API initialization fails
+Gemma client initialization fails
 Gemma API call fails
 Gemma response is invalid
 ```
 
-This prevents the entire application from failing because one external AI service is unavailable.
+This prevents the entire application from becoming unavailable because of one external AI service.
 
 ---
 
 ## 9. CNN Spoof Detection Model
 
-The custom CNN is implemented in `model.py`.
+The custom CNN is implemented in:
+
+```text
+model.py
+```
 
 ### Architecture
 
@@ -752,15 +726,15 @@ BCEWithLogitsLoss
 Adam Optimizer
 ```
 
-The task is binary classification:
+The task is:
 
 ```text
-Real
+Real Speech
 vs.
-Spoof
+Spoof Speech
 ```
 
-The main research evaluation metric reported in this project is:
+The main research metric reported in this project is:
 
 ```text
 Equal Error Rate (EER)
@@ -780,7 +754,7 @@ The central research question became:
 
 ---
 
-### 10.2 ASVspoof Benchmark
+### 10.2 ASVspoof Benchmark Evaluation
 
 The CNN was initially trained and evaluated using ASVspoof research data.
 
@@ -791,7 +765,7 @@ ASVspoof Benchmark EER
 ≈ 0.00134
 ```
 
-This indicated very strong matched-condition performance.
+This demonstrated strong performance when training and evaluation conditions were closely matched.
 
 ---
 
@@ -805,7 +779,7 @@ To evaluate deployment robustness, approximately:
 
 were additionally collected and tested.
 
-The real-world set included conditions such as:
+The real-world evaluation included conditions such as:
 
 - mobile recordings;
 - replayed speech;
@@ -815,25 +789,25 @@ The real-world set included conditions such as:
 - compressed audio;
 - transmitted audio.
 
-The result changed dramatically:
+Performance changed substantially:
 
 ```text
 Initial Real-World EER
 ≈ 0.30
 ```
 
-This revealed a major domain gap.
+This revealed a major domain gap between benchmark evaluation and realistic deployment conditions.
 
 ---
 
 ### 10.4 Data Augmentation
 
-Because the original real-world dataset was small, a custom audio augmentation pipeline was developed.
+Because the original real-world dataset was small, a custom augmentation pipeline was developed.
 
 Approximately:
 
 ```text
-100 original samples
+100 original real-world samples
 ```
 
 were expanded into approximately:
@@ -853,11 +827,21 @@ Audio Distortion
 Waveform Modification
 ```
 
+<p align="center">
+  <img src="assets/augmentation-pipeline.png"
+       alt="Real-world data augmentation and transfer learning pipeline"
+       width="52%">
+</p>
+
+<p align="center">
+  <em>Real-world data augmentation and adaptation workflow.</em>
+</p>
+
 ---
 
 ### 10.5 Transfer Learning and Fine-Tuning
 
-Instead of completely abandoning the benchmark-trained CNN, the project explored transfer learning.
+Instead of completely discarding the benchmark-trained CNN, the project explored transfer learning.
 
 The general strategy was:
 
@@ -869,18 +853,28 @@ Retain Learned Representation
 Adapt Selected Layers
        ↓
 Train with Augmented Real-World Data
+       ↓
+Fine-Tuned CNN
 ```
 
-After augmentation and adaptation:
+After augmentation and adaptation, one experimental evaluation produced:
 
 ```text
 EER
 ≈ 0.03
 ```
 
+This was a substantial improvement compared with the initial real-world evaluation.
+
 ---
 
-### 10.6 Experimental Summary
+### 10.6 EER Comparison
+
+<p align="center">
+  <img src="assets/eer-comparison.png"
+       alt="EER comparison across benchmark and real-world evaluation settings"
+       width="82%">
+</p>
 
 | Evaluation Setting | EER |
 |---|---:|
@@ -888,13 +882,51 @@ EER
 | Initial Real-World Evaluation | **0.30** |
 | Augmented + Fine-Tuned Evaluation | **0.03** |
 
+The EER comparison illustrates the project's central robustness problem:
+
+```text
+Strong Benchmark Performance
+        ↓
+Severe Real-World Degradation
+        ↓
+Partial Recovery through Adaptation
+```
+
 ---
 
-### 10.7 Key Research Finding
+### 10.7 Diagnostic Experiment: Partial Layer Freezing
+
+Not every transfer-learning strategy worked successfully.
+
+A separate diagnostic experiment tested partial layer freezing under domain shift.
+
+The observed diagnostic accuracies were:
+
+```text
+Original benchmark-trained model: 95%
+
+Frozen-layer adaptation: 32%
+```
+
+<p align="center">
+  <img src="assets/transfer-learning-diagnostic.png"
+       alt="Diagnostic accuracy comparison for partial layer freezing"
+       width="82%">
+</p>
+
+> **Important:** These percentages are diagnostic accuracy values from a separate experiment and are **not the same metric as EER**. They should not be directly numerically compared with the EER results above.
+
+This diagnostic experiment showed that naïve partial-layer freezing did not transfer reliably to the real-world recording domain, motivating further changes to the adaptation strategy.
+
+Rather than hiding an unsuccessful experiment, this result became useful evidence about the limitations of simple transfer-learning assumptions.
+
+---
+
+### 10.8 Key Research Finding
 
 > Extremely low benchmark EER does not guarantee real-world robustness.
 
-The experiments indicate that spoof detection performance can be strongly affected by:
+The experiments indicate that spoof-detection performance can be strongly affected by:
 
 ```text
 Dataset Mismatch
@@ -923,9 +955,9 @@ became one of the most important findings of the project.
 
 ---
 
-### 10.8 Why the Finding Matters
+### 10.9 Domain Shift Interpretation
 
-A system may appear highly accurate when:
+A model may perform strongly when:
 
 ```text
 Training Distribution
@@ -933,7 +965,7 @@ Training Distribution
 Testing Distribution
 ```
 
-but fail when:
+but deployment often introduces:
 
 ```text
 Deployment Distribution
@@ -947,18 +979,19 @@ This is a practical example of:
 Domain Shift
 ```
 
-and motivates future research into:
+and motivates research into:
 
 ```text
 Domain Generalization
 Domain Adaptation
 Cross-Dataset Robustness
 Unseen Attack Detection
+Robust Feature Learning
 ```
 
 ---
 
-### 10.9 Interpretation of the Improved Result
+### 10.10 Interpretation of the Improved EER
 
 The improved:
 
@@ -968,21 +1001,25 @@ EER ≈ 0.03
 
 shows that augmentation and adaptation can substantially improve experimental performance.
 
-However, it should **not** be interpreted as a universal production accuracy guarantee.
+However, it should **not** be interpreted as:
 
-The three reported EER values correspond to different evaluation conditions.
+```text
+Production Error Rate = 3%
+```
 
-The most important lesson is:
+The reported EER values come from different evaluation conditions.
+
+The most important conclusion is:
 
 > Benchmark success is not the same as deployment reliability.
 
 ---
 
-### 10.10 How the Research Changed the Product
+### 10.11 How the Research Changed the Product
 
 The research findings directly changed the application architecture.
 
-The deployed prototype no longer uses:
+The system no longer uses:
 
 ```text
 CNN Prediction
@@ -993,15 +1030,15 @@ Final Decision
 Instead:
 
 ```text
-CNN Evidence
+CNN Acoustic Evidence
 +
-Transcript
+Whisper Transcript
 +
-Risk Signals
+Scam Risk Signals
 +
-Evidence Source
+Evidence Source Reliability
 +
-LLM Reasoning
+Gemma Reasoning
 +
 Human Verification
 ```
@@ -1012,21 +1049,35 @@ This connects model research with product safety design.
 
 ---
 
-## 11. Deployment Strategy
+## 11. Current Deployment Strategy
 
-The system follows a conservative deployment strategy.
+The public prototype follows a conservative deployment strategy.
 
-### Unsafe Design
+Research experiments and the deployed checkpoint should be interpreted separately.
 
-The application avoids:
+Experimental fine-tuning results are used to study robustness and adaptation.
+
+The application itself is designed around:
+
+```text
+Stable Acoustic Evidence
++
+Semantic Evidence
++
+Evidence Reliability
++
+Risk Reasoning
++
+Human Verification
+```
+
+The system explicitly avoids:
 
 ```text
 Low Spoof Probability
 =
 Definitely Safe
 ```
-
-### Current Design
 
 Instead:
 
@@ -1048,9 +1099,9 @@ Moderate Acoustic Evidence
 Caution / High Risk
 ```
 
-The final goal is not to maximize confidence.
+The goal is not to make the AI appear maximally confident.
 
-The goal is to avoid presenting uncertain AI predictions as absolute truth.
+The goal is to avoid presenting uncertain predictions as absolute truth.
 
 ---
 
@@ -1070,7 +1121,7 @@ The goal is to avoid presenting uncertain AI predictions as absolute truth.
 | Speech Recognition | Faster-Whisper |
 | LLM Reasoning | Google Gemma |
 | API Client | Hugging Face Inference Client |
-| Demo Database | Local JSON |
+| Prototype Database | Local JSON |
 | Notifications | Simulated SMS / WeChat / Push |
 | Deployment | Hugging Face Spaces |
 | Evaluation | scikit-learn ROC / EER |
@@ -1096,6 +1147,9 @@ AI-Voice-Safety-Agent/
 │   ├── homepage.png
 │   ├── elder-interface.png
 │   ├── helper-interface.png
+│   ├── augmentation-pipeline.png
+│   ├── eer-comparison.png
+│   ├── transfer-learning-diagnostic.png
 │   └── demo-video.mp4
 │
 ├── docs/
@@ -1113,10 +1167,10 @@ AI-Voice-Safety-Agent/
 
 | File | Purpose |
 |---|---|
-| `app.py` | Full FastAPI application and workflow |
-| `model.py` | CNN2D model |
+| `app.py` | Full FastAPI application and safety workflow |
+| `model.py` | CNN2D model architecture |
 | `train.py` | Training and EER evaluation pipeline |
-| `best_model.pth` | CNN model checkpoint |
+| `best_model.pth` | CNN checkpoint used by the application |
 | `requirements.txt` | Python dependencies |
 | `README.md` | English documentation |
 | `README.zh-CN.md` | Chinese documentation |
@@ -1125,16 +1179,14 @@ AI-Voice-Safety-Agent/
 
 ## 14. Quick Start
 
-### Clone Repository
+### Clone the Repository
 
 ```bash
 git clone https://github.com/lwenxuan420-lgtm/AI-Voice-Safety-Agent.git
 cd AI-Voice-Safety-Agent
 ```
 
----
-
-### Create Virtual Environment
+### Create a Virtual Environment
 
 #### Windows PowerShell
 
@@ -1150,8 +1202,6 @@ python3 -m venv .venv
 source .venv/bin/activate
 ```
 
----
-
 ### Install Dependencies
 
 ```bash
@@ -1159,7 +1209,7 @@ pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-Suggested dependencies include:
+Suggested dependencies:
 
 ```text
 fastapi
@@ -1176,8 +1226,6 @@ scikit-learn
 tqdm
 ```
 
----
-
 ### Install FFmpeg
 
 Check:
@@ -1188,9 +1236,7 @@ ffmpeg -version
 
 FFmpeg must be available from the command line.
 
----
-
-### Model Checkpoint
+### Add the Model Checkpoint
 
 Place:
 
@@ -1198,9 +1244,7 @@ Place:
 best_model.pth
 ```
 
-in the project root.
-
----
+in the repository root.
 
 ### Configure Gemma
 
@@ -1220,13 +1264,9 @@ export GEMMA_MODEL_ID="google/gemma-4-26B-A4B-it"
 export GEMMA_PROVIDER="deepinfra"
 ```
 
-Gemma is optional for basic application availability.
+Without `HF_TOKEN`, the application can still run using local conservative reasoning.
 
-Without `HF_TOKEN`, the application uses local conservative reasoning.
-
----
-
-### Start Application
+### Start the Application
 
 ```bash
 python app.py
@@ -1253,7 +1293,11 @@ Routes:
 
 ### Dataset Configuration
 
-Update your local dataset paths inside `train.py`.
+Update local dataset paths inside:
+
+```text
+train.py
+```
 
 Example:
 
@@ -1265,9 +1309,11 @@ ASV_ROOTS = [
 ASV_CSV = "path/to/train.csv"
 ```
 
-Real-world datasets should not be uploaded publicly unless consent and licensing requirements are satisfied.
+Do not commit:
 
----
+- private absolute local paths;
+- personal recordings without permission;
+- restricted datasets.
 
 ### Training Pipeline
 
@@ -1303,23 +1349,21 @@ Run:
 python train.py
 ```
 
----
-
 ### Reproducibility
 
 Future research releases should document:
 
 - exact ASVspoof subset;
 - protocol files;
-- random seed;
+- random seeds;
 - train / validation / test split;
-- augmentation parameters;
+- augmentation probabilities and parameters;
 - transfer-learning configuration;
 - layer-freezing strategy;
-- model checkpoint selection;
+- checkpoint-selection rules;
 - per-condition evaluation;
 - cross-dataset testing;
-- repeated-run variance.
+- repeated-run variance or confidence intervals.
 
 ---
 
@@ -1335,17 +1379,15 @@ Future research releases should document:
 | `TORCH_NUM_THREADS` | No | CPU thread control |
 | `PORT` | No | Application port |
 
-Default application port:
+Default port:
 
 ```text
 7860
 ```
 
----
-
 ### Optional Notification Configuration
 
-The prototype contains optional hooks for:
+The prototype contains hooks for:
 
 ```text
 SMS_API_KEY
@@ -1354,7 +1396,7 @@ WECHAT_APP_SECRET
 PUSH_API_KEY
 ```
 
-The public demo currently simulates these notification channels unless a real provider is configured.
+The public demo simulates these notification channels unless real providers are configured.
 
 ---
 
@@ -1362,25 +1404,17 @@ The public demo currently simulates these notification channels unless a real pr
 
 ### Research Data
 
-The project uses:
-
-```text
-ASVspoof Research Data
-```
-
-and separately collected real-world samples for robustness experiments.
+The project uses ASVspoof research data and separately collected real-world samples for robustness experiments.
 
 Publicly shared audio should only contain:
 
 - synthetic audio;
 - openly licensed audio;
-- or recordings collected with explicit consent.
-
----
+- recordings collected with explicit consent.
 
 ### Prototype Storage
 
-The current application uses local prototype storage such as:
+The current application uses prototype storage such as:
 
 ```text
 requests_db.json
@@ -1396,11 +1430,7 @@ for:
 - notifications;
 - uploaded evidence.
 
-This architecture is intended for demonstration and research.
-
-It is **not** production-grade storage.
-
----
+This architecture is intended for research and demonstration only.
 
 ### Production Deployment Would Require
 
@@ -1408,7 +1438,7 @@ It is **not** production-grade storage.
 Secure Authentication
 Encrypted Storage
 Encrypted Transport
-Access Control
+Role-Based Access Control
 Secret Management
 Consent Management
 Data Retention Policies
@@ -1419,21 +1449,17 @@ Secure Object Storage
 Production Database
 ```
 
----
-
 ### Intended Use
 
 This project is intended for:
 
 - AI safety research;
-- speech deepfake detection research;
+- speech deepfake research;
 - human-centered AI research;
 - educational demonstration;
 - AI application engineering;
 - scam-risk assistance;
 - trusted-helper workflow prototyping.
-
----
 
 ### Out-of-Scope Use
 
@@ -1452,8 +1478,6 @@ This project should not be used for:
 ---
 
 ## 18. Current Limitations
-
-The project currently has several important limitations.
 
 ### Model Limitations
 
@@ -1482,14 +1506,14 @@ The project currently has several important limitations.
 - notification delivery is simulated;
 - uploaded files are stored locally;
 - the system does not yet use a production database;
-- the current CNN analyzes a fixed audio window;
-- the system is not yet a real-time call-monitoring service.
+- the CNN currently analyzes a fixed audio window;
+- the system is not yet a complete real-time call-monitoring service.
 
 ### Product Limitations
 
-- current UI is Chinese-first;
+- the current UI is Chinese-first;
 - larger user testing is still needed;
-- accessibility evaluation is still needed;
+- formal accessibility evaluation is still required;
 - production escalation protocols remain future work.
 
 ---
@@ -1498,14 +1522,12 @@ The project currently has several important limitations.
 
 ### Research
 
-Future research directions include:
-
 ```text
 Cross-Dataset Evaluation
 Domain Adaptation
 Domain Generalization
 Unseen Attack Detection
-Self-Supervised Speech Models
+Self-Supervised Speech Representations
 Contrastive Learning
 One-Class Learning
 Uncertainty Estimation
@@ -1514,11 +1536,7 @@ Replay Simulation
 Robust Feature Learning
 ```
 
----
-
 ### Engineering
-
-Future engineering improvements include:
 
 ```text
 PostgreSQL / Supabase
@@ -1527,7 +1545,7 @@ Real Notification Services
 Task Queues
 Monitoring
 Logging
-Automated Tests
+Automated Testing
 Docker
 CI/CD
 Model Versioning
@@ -1535,11 +1553,7 @@ Streaming Audio Analysis
 Edge Deployment
 ```
 
----
-
 ### Product
-
-Future product directions include:
 
 ```text
 Multilingual Interface
@@ -1558,7 +1572,7 @@ Permission-Controlled Function Calling
 
 This project documents more than a model-training experiment.
 
-It demonstrates the complete evolution of an AI application:
+It demonstrates the evolution of an AI application:
 
 ```text
 Problem Discovery
@@ -1577,6 +1591,8 @@ Data Augmentation
         ↓
 Transfer Learning
         ↓
+Failed Strategy Diagnosis
+        ↓
 Risk-Aware Product Redesign
         ↓
 Backend Development
@@ -1588,7 +1604,7 @@ Human-in-the-Loop Workflow
 Deployment
 ```
 
-The project integrates knowledge from:
+The project integrates:
 
 ```text
 Machine Learning
@@ -1620,9 +1636,11 @@ Maintainer:
 
 GitHub:
 
+```text
 https://github.com/lwenxuan420-lgtm
+```
 
-Project Areas:
+Project areas:
 
 ```text
 AI Safety
