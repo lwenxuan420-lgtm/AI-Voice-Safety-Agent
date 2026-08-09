@@ -27,12 +27,13 @@
   <img alt="FastAPI" src="https://img.shields.io/badge/Backend-FastAPI-009688">
   <img alt="PyTorch" src="https://img.shields.io/badge/Deep%20Learning-PyTorch-EE4C2C">
   <img alt="Gemma" src="https://img.shields.io/badge/LLM-Gemma-blueviolet">
+  <img alt="Bilingual" src="https://img.shields.io/badge/UI-中文%20%7C%20English-success">
   <img alt="Deployment" src="https://img.shields.io/badge/Deployment-Hugging%20Face-yellow">
   <img alt="License" src="https://img.shields.io/badge/License-MIT-green">
 </p>
 
 > [!IMPORTANT]
-> AI Voice Safety Agent 是一个研究与工程原型。
+> AI Voice Safety Agent 是一个研究与工程原型。  
 > 系统提供辅助证据和安全建议，但不能作为法律、金融、身份验证或执法场景中的最终决策系统。
 
 ---
@@ -77,6 +78,7 @@ GemmaShield 是一个面向老年人、家属和社区工作人员的多模态 A
 - 证据来源可信度分析；
 - Gemma 风险推理；
 - 本地保守降级推理；
+- 中文 / English 界面切换；
 - 老人端页面；
 - 家属/社区端页面；
 - 可信协助人绑定和求助流程。
@@ -91,7 +93,7 @@ vs.
 
 的二分类系统。
 
-但是在真实世界实验中，我们发现了一个非常重要的问题：
+但是在真实世界实验中，我们发现：
 
 > 实验室 benchmark 上的优秀性能，并不能自动迁移到手机录音和真实世界的语音伪造场景。
 
@@ -113,7 +115,7 @@ vs.
 人工核实
 ```
 
-因此，这个项目同时探索：
+项目同时连接两个方向：
 
 ### AI 科研
 
@@ -132,6 +134,7 @@ Backend Development
 Workflow Design
 LLM Integration
 Fallback Logic
+Internationalization
 Human-in-the-Loop Safety
 Deployment
 ```
@@ -140,26 +143,24 @@ Deployment
 
 ## 2. 为什么要做这个项目
 
-传统语音伪造检测系统通常只会输出一个数字：
+传统语音伪造检测系统通常只输出：
 
 ```text
 AI 伪造概率：0.82
 ```
 
-但对于普通用户，尤其是老年用户，这个数字并不能回答真正重要的问题：
+但对普通用户，尤其是老年用户，这个数字无法回答：
 
-- 为什么这段声音可疑？
+- 为什么声音可疑？
 - 对方是否要求转账？
-- 对方是否在冒充家属？
-- 对方是否在制造紧急感？
-- 当前音频本身是否可靠？
-- 老人应该继续和对方沟通吗？
+- 是否冒充家属？
+- 是否制造紧急感？
+- 当前音频证据是否可靠？
+- 老人是否应该继续通话？
 - 是否应该联系家人？
-- 当模型自己也不确定时应该怎么办？
+- 当模型不确定时应该怎么办？
 
-AI Voice Safety Agent 尝试解决这一问题。
-
-系统把原始 AI 输出转化为：
+AI Voice Safety Agent 尝试把模型输出转化为：
 
 ```text
 风险等级
@@ -171,7 +172,7 @@ AI Voice Safety Agent 尝试解决这一问题。
 可信人工协助
 ```
 
-项目遵循一个核心原则：
+核心原则：
 
 > 面向安全场景的 AI 系统，不应该只输出预测，还应该表达不确定性、解释证据，并允许可信的人类参与最终处理。
 
@@ -184,14 +185,12 @@ AI Voice Safety Agent 尝试解决这一问题。
 ```text
 音频
  ↓
-Log-Mel 频谱
+Log-Mel
  ↓
 CNN
  ↓
 真人 / AI
 ```
-
-真实世界实验随后暴露出了明显局限。
 
 ### 当前版本
 
@@ -204,7 +203,7 @@ CNN
  ↓               ↓
 CNN              Faster-Whisper
  ↓               ↓
-声学证据          转录文本
+声学证据          原始转录文本
         └──────┬──┘
                ↓
         诈骗风险信号
@@ -218,7 +217,7 @@ CNN              Faster-Whisper
        老人 + 可信协助人
 ```
 
-项目最重要的工程认识是：
+最重要的工程认识：
 
 > 当 AI 模型在 Domain Shift 下并不可靠时，不确定性表达、证据管理、权限控制、降级逻辑和人工升级机制，本身就是安全方案的一部分。
 
@@ -228,15 +227,15 @@ CNN              Faster-Whisper
 
 ### AI 与音频分析
 
-- 16 kHz 单声道音频标准化；
-- 固定长度波形处理；
-- 64 维 Log-Mel 频谱；
-- 自定义 CNN2D；
-- 真人 / 伪造概率估计；
-- Faster-Whisper 语音转写；
-- 诈骗风险信号提取；
-- 证据来源可信度判断；
-- Gemma 结构化风险推理；
+- 16 kHz 单声道标准化；
+- 固定长度波形；
+- 64 维 Log-Mel；
+- CNN2D；
+- 真人 / 伪造概率；
+- Faster-Whisper；
+- 诈骗风险信号；
+- 证据来源可信度；
+- Gemma 风险推理；
 - 本地保守降级推理。
 
 ### 风险等级
@@ -259,26 +258,49 @@ LOW
 
 ### 产品流程
 
-系统目前支持：
+系统支持：
 
 - 老人账号；
 - 家属/社区协助人账号；
 - Demo 手机验证；
-- 六位数字可信协助人绑定码；
+- 六位数字绑定码；
 - 协助人绑定申请；
 - 老人确认；
 - 最多五名可信协助人；
-- 一键发起求助；
+- 一键求助；
 - 家属求助收件箱；
-- 求助权限管理；
-- 老人端录音；
+- 权限控制；
+- 录音；
 - 音频上传；
 - 证据查看；
-- 解绑与更换可信联系人；
+- 解绑和更换联系人；
 - 模拟短信 / 微信 / Push；
-- 本地 Demo 数据持久化；
+- 本地原型数据持久化；
 - Health 状态；
-- Hugging Face Spaces 部署。
+- Hugging Face 部署。
+
+### 中英文双语体验
+
+当前系统已经支持：
+
+- 中文 / English 一键切换；
+- 跨页面保留语言选择；
+- 双语导航栏；
+- 双语按钮和表单；
+- 双语运行提示；
+- 双语 `alert` / `confirm`；
+- API 自动携带当前语言；
+- Gemma 根据当前界面语言输出风险解释。
+
+Whisper 的原始转录文本仍作为原始证据保留，不因为界面语言变化而被强制翻译。
+
+因此系统明确区分：
+
+```text
+原始证据
+   ↓
+跟随用户语言的风险解释
+```
 
 ### 面向老年人的设计
 
@@ -287,11 +309,10 @@ LOW
 - 大字体；
 - 高对比度；
 - 简单操作；
-- 尽量少展示技术指标；
+- 少展示技术指标；
 - 清晰风险等级；
-- 可执行安全建议。
-
-家属/社区端展示更多技术证据。
+- 可执行安全建议；
+- 中文 / English 语言选择。
 
 ---
 
@@ -304,30 +325,30 @@ LOW
 1. 完成首次设置；
 2. 获得六位绑定码；
 3. 确认家属或社区协助人；
-4. 现场录音或上传可疑音频；
+4. 现场录音或上传音频；
 5. 一键发起求助；
 6. 接收简单风险提醒；
 7. 查看历史求助；
-8. 更换或删除可信协助人。
+8. 更换或删除协助人。
 
 ### 5.2 家属 / 社区端
 
 可信协助人可以：
 
-1. 创建或进入协助人账号；
-2. 输入老人端六位数字；
+1. 创建或进入账号；
+2. 输入老人六位绑定码；
 3. 提交绑定申请；
 4. 等待老人确认；
 5. 接收老人求助；
 6. 查看证据来源；
 7. 查看已有音频；
 8. 上传额外证据；
-9. 执行 CNN + Whisper 第一阶段分析；
-10. 执行 Gemma 第二阶段推理；
-11. 查看完整风险报告；
-12. 帮助老人进行最终核实。
+9. 执行 CNN + Whisper；
+10. 执行 Gemma 推理；
+11. 查看详细报告；
+12. 帮助老人完成最终核实。
 
-### 5.3 两阶段 AI 分析
+### 5.3 两阶段分析
 
 #### 第一阶段
 
@@ -347,13 +368,13 @@ Faster-Whisper
 Gemma 风险推理
 ```
 
-如果 Gemma 不可用：
+若 Gemma 不可用：
 
 ```text
 本地保守推理
 ```
 
-会继续提供基础安全分析。
+继续提供基础分析。
 
 ---
 
@@ -391,11 +412,19 @@ Gemma 风险推理
 
 🌐 [打开 Hugging Face Spaces 上的 GemmaShield](https://huggingface.co/spaces/Laura-smith/voice-spoof-detector)
 
+当前在线系统支持：
+
+```text
+中文 | English
+```
+
+直接切换。
+
 ### 完整 Demo 视频
 
 🎥 [查看完整操作视频](assets/demo-video.mp4)
 
-完整 Demo 流程：
+流程：
 
 ```text
 老人首次设置
@@ -419,8 +448,6 @@ Gemma 推理
 安全建议
 ```
 
-> 如果 Hugging Face Space 因地区或网络问题暂时无法访问，可以查看录制视频或在本地运行项目。
-
 ---
 
 ## 7. 系统架构
@@ -429,22 +456,20 @@ Gemma 推理
 flowchart TD
 
     A[可疑语音证据]
-
     A --> B[FFmpeg / 音频标准化]
-
     B --> C[16 kHz 单声道波形]
 
-    C --> D[64 维 Log-Mel 频谱]
-    D --> E[CNN2D 伪造检测]
+    C --> D[64 维 Log-Mel]
+    D --> E[CNN2D]
     E --> F[真人 / 伪造概率]
 
     C --> G[Faster-Whisper]
-    G --> H[语音转录文本]
+    G --> H[原始转录文本]
 
-    H --> I[诈骗风险信号提取]
+    H --> I[诈骗风险信号]
 
-    J[证据来源信息]
-    J --> K[来源可信度判断]
+    J[证据来源]
+    J --> K[来源可信度]
 
     F --> L[综合证据包]
     I --> L
@@ -452,8 +477,8 @@ flowchart TD
 
     L --> M{Gemma 是否可用}
 
-    M -->|可用| N[Gemma 风险推理]
-    M -->|失败 / 未配置| O[本地保守推理]
+    M -->|是| N[跟随语言的 Gemma 推理]
+    M -->|否 / 错误| O[本地保守推理]
 
     N --> P[风险等级]
     N --> Q[证据解释]
@@ -464,15 +489,20 @@ flowchart TD
     O --> R
 
     P --> S[老人端简明提醒]
-
-    Q --> T[家属 / 社区详细界面]
+    Q --> T[家属 / 社区详细报告]
+    R --> S
     R --> T
 
-    U[本地 JSON 数据库]
-    U <--> V[用户 / 绑定 / 求助 / 通知]
+    U[语言偏好]
+    U --> N
+    U --> S
+    U --> T
 
-    V --> S
-    V --> T
+    V[本地 JSON 原型数据库]
+    V <--> W[用户 / 绑定 / 求助 / 通知]
+
+    W --> S
+    W --> T
 ```
 
 ---
@@ -483,27 +513,17 @@ flowchart TD
 
 ```text
 采样率：16,000 Hz
-声道：单声道
-固定长度：64,000 个采样点
+声道：Mono
+固定长度：64,000 samples
 分析窗口：约 4 秒
 ```
 
-### 8.2 Log-Mel 频谱
+### 8.2 Log-Mel
 
 ```text
 n_fft = 1024
 hop_length = 512
 n_mels = 64
-```
-
-```text
-Waveform
-   ↓
-Mel Spectrogram
-   ↓
-Log Transform
-   ↓
-Feature Normalization
 ```
 
 ### 8.3 CNN 声学证据
@@ -514,11 +534,11 @@ Feature Normalization
 AI 伪造概率 = 1 - 真人概率
 ```
 
-该概率只作为声学证据，而不是最终安全结论。
+该结果只作为声学证据。
 
 ### 8.4 Faster-Whisper
 
-Whisper 提供文本语义证据。
+Whisper 提供原始文本证据。
 
 例如：
 
@@ -532,11 +552,9 @@ Whisper 提供文本语义证据。
 “把验证码告诉我。”
 ```
 
-即使声学证据并不明确，这些内容仍可能构成重要诈骗信号。
+切换到英文 UI 后，原始中文 transcript 仍然保留。
 
 ### 8.5 诈骗风险信号
-
-当前系统检测：
 
 ```text
 转账
@@ -550,14 +568,14 @@ Whisper 提供文本语义证据。
 
 ### 8.6 证据来源可信度
 
-| 证据来源 | 当前可信度处理 | 主要问题 |
+| 证据来源 | 当前处理 | 主要问题 |
 |---|---|---|
-| 浏览器 / 麦克风现场录音 | 需要人工核实 | 重放、房间声学、设备噪声 |
+| 浏览器 / 麦克风录音 | 需要人工核实 | 重放、房间声学、设备噪声 |
 | 老人上传音频 | 中等 | 来源处理未知 |
-| 微信 / 社交软件语音 | 中等 | 平台压缩 |
-| 语音留言 | 中等 | 编码与信道 |
-| 保存的通话录音 | 相对较高 | 电话信道仍会改变音频 |
-| 家属上传证据 | 相对较高 | 仍取决于原始来源 |
+| 微信 / 社交软件 | 中等 | 平台压缩 |
+| 语音留言 | 中等 | Codec / Channel |
+| 通话录音 | 相对较高 | 电话信道仍会改变音频 |
+| 家属上传证据 | 相对较高 | 取决于原始来源 |
 
 所以：
 
@@ -565,60 +583,55 @@ Whisper 提供文本语义证据。
 AI 伪造概率较低
 ```
 
-不能直接等于：
+不能自动等于：
 
 ```text
 安全
 ```
 
-### 8.7 Gemma 风险推理
+### 8.7 跟随语言的 Gemma 推理
 
 Gemma 接收：
 
 ```text
 真人概率
 AI 伪造概率
-语音文本
+原始 Transcript
 初步风险等级
 诈骗类型
 风险行为信号
 证据来源
 证据可信度
+当前界面语言
 ```
 
-输出：
+中文模式输出：
 
 ```text
-风险等级
-原因
-声音证据解释
-文本证据解释
-给老人的建议
-给家属的建议
-一句话提醒
+中文风险等级
+中文风险解释
+中文安全建议
 ```
 
-Gemma 的作用是：
+English 模式输出：
 
 ```text
-综合推理
-+
-风险解释
-+
-安全沟通
+English Risk Level
+English Evidence Explanation
+English Safety Recommendation
 ```
 
-不是替 CNN 修改预测结果。
+原始 Whisper transcript 不被强制改写。
 
 ### 8.8 本地降级推理
 
-以下情况启用：
+以下情况触发：
 
 ```text
 HF_TOKEN 未配置
 Gemma 初始化失败
 Gemma API 失败
-Gemma 输出无效
+Gemma 返回内容无效
 ```
 
 ---
@@ -631,7 +644,7 @@ Gemma 输出无效
 model.py
 ```
 
-### 模型结构
+### 网络结构
 
 ```text
 Input
@@ -675,7 +688,7 @@ Linear
 ### 输入
 
 ```text
-标准化的 64 维 Log-Mel 频谱
+64 维标准化 Log-Mel
 ```
 
 ```text
@@ -685,23 +698,10 @@ Linear
 ### 训练
 
 ```text
-BCEWithLogitsLoss
-Adam Optimizer
-```
-
-任务：
-
-```text
-真人
-vs.
-AI / Spoof
-```
-
-主要研究指标：
-
-```text
-Equal Error Rate
-EER
+Loss：BCEWithLogitsLoss
+Optimizer：Adam
+任务：Real vs. Spoof
+主要指标：EER
 ```
 
 ---
@@ -710,28 +710,20 @@ EER
 
 ### 10.1 核心研究问题
 
-> 在受控反欺骗 benchmark 中表现优秀的模型，能否直接迁移到真实手机录音和实际部署环境？
-
----
+> 在受控 benchmark 中表现优秀的语音反欺骗模型，能否直接迁移到真实手机录音和实际部署环境？
 
 ### 10.2 ASVspoof Benchmark
-
-模型最初主要使用 ASVspoof 数据训练和评估。
-
-结果：
 
 ```text
 ASVspoof Benchmark EER
 ≈ 0.00134
 ```
 
-说明在训练环境和测试环境高度匹配时，模型能够获得非常好的结果。
-
----
+说明训练和测试条件匹配时，模型能够取得很强的结果。
 
 ### 10.3 真实世界测试
 
-项目额外收集并测试约：
+额外收集约：
 
 ```text
 100 条真实世界音频
@@ -740,12 +732,12 @@ ASVspoof Benchmark EER
 包含：
 
 - 手机录音；
-- 重放音频；
+- Replay；
 - AI 生成语音；
-- 不同麦克风；
+- 麦克风差异；
 - 环境噪声；
-- 压缩音频；
-- 传输后的语音。
+- 压缩；
+- 传输。
 
 结果：
 
@@ -754,23 +746,15 @@ ASVspoof Benchmark EER
 ≈ 0.30
 ```
 
-这一结果暴露出明显的：
+暴露出明显：
 
 ```text
 Domain Gap
 ```
 
----
-
 ### 10.4 数据增强
 
-由于最初真实世界数据只有约：
-
-```text
-100 条
-```
-
-项目建立数据增强流程，扩增到约：
+约 100 条样本扩增到约：
 
 ```text
 50,000 条
@@ -789,19 +773,11 @@ Waveform Modification
 
 <p align="center">
   <img src="assets/augmentation-pipeline.png"
-       alt="真实世界数据增强与迁移学习流程"
+       alt="真实世界数据增强与模型适配流程"
        width="52%">
 </p>
 
-<p align="center">
-  <em>真实世界数据增强与模型适配流程。</em>
-</p>
-
----
-
 ### 10.5 迁移学习与微调
-
-项目继续利用 ASVspoof 模型已经学习到的表示：
 
 ```text
 ASVspoof 预训练 CNN
@@ -810,94 +786,84 @@ ASVspoof 预训练 CNN
        ↓
 调整部分网络层
        ↓
-增强真实世界数据
+增强真实数据
        ↓
-Fine-Tuning
+Fine-Tuned CNN
 ```
 
-适配后的一组实验结果：
+一组适配实验得到：
 
 ```text
 EER
 ≈ 0.03
 ```
 
----
-
 ### 10.6 EER 对比
 
 <p align="center">
   <img src="assets/eer-comparison.png"
-       alt="Benchmark 与真实世界 EER 对比"
+       alt="Benchmark 和真实世界 EER 对比"
        width="82%">
 </p>
 
-| 测试环境 | EER |
+| 测试条件 | EER |
 |---|---:|
 | ASVspoof Benchmark | **0.00134** |
 | 初始真实世界测试 | **0.30** |
 | 数据增强 + 微调 | **0.03** |
 
-该结果完整体现了：
+完整表现：
 
 ```text
 Benchmark 高性能
         ↓
 真实世界严重下降
         ↓
-数据适配后部分恢复
+适配后显著恢复
 ```
-
----
 
 ### 10.7 诊断实验：冻结部分网络层
 
-并不是所有迁移学习策略都有效。
+并不是所有 Transfer Learning 策略都有效。
 
-项目单独进行了冻结部分网络层的诊断实验。
-
-该实验中的 Accuracy 为：
+独立诊断实验得到：
 
 ```text
-原 benchmark 训练模型：95%
+原 Benchmark 模型 Accuracy：95%
 
-Frozen-layer adaptation：32%
+Frozen-Layer Adaptation Accuracy：32%
 ```
 
 <p align="center">
   <img src="assets/transfer-learning-diagnostic.png"
-       alt="冻结部分网络层的诊断实验"
+       alt="冻结层迁移学习诊断实验"
        width="82%">
 </p>
 
-> **重要说明：** 这里的 95% 和 32% 是一次独立诊断实验中的 Accuracy，和上面的 EER 属于不同指标，不能直接进行数值比较。
+> **重要：** 95% 和 32% 是独立诊断实验中的 **Accuracy**，并不是 EER，因此不能直接与 `0.00134 / 0.30 / 0.03` 进行数值比较。
 
-该诊断实验表明：
+实验表明：
 
-> 简单冻结部分网络层并不能保证模型能够迁移到真实世界录音域，这促使项目继续调整后续的适配策略。
+> 简单冻结部分网络层并不能保证模型稳定迁移到真实世界录音域。
 
-这一失败实验没有被隐藏，而是成为分析 Domain Shift 与迁移学习限制的重要证据。
+失败实验本身成为理解 Domain Shift 和迁移学习限制的重要证据。
 
----
+### 10.8 核心研究发现
 
-### 10.8 最重要的研究发现
+> 极低的 benchmark EER 并不意味着真实世界鲁棒性。
 
-> 极低的 benchmark EER 并不意味着模型具有真实世界鲁棒性。
-
-模型容易受到：
+主要影响因素：
 
 ```text
 数据集不匹配
 设备差异
 麦克风差异
-重放信道
-房间环境
-编码压缩
+Replay Channel
+房间声学
+Codec Compression
 背景噪声
-未知语音生成方法
+未知生成方法
 ```
-
-影响。
 
 从：
 
@@ -911,13 +877,9 @@ EER ≈ 0.00134
 EER ≈ 0.30
 ```
 
-的巨大变化，是整个项目最重要的研究发现之一。
-
----
+是项目最重要的发现之一。
 
 ### 10.9 Domain Shift
-
-当：
 
 ```text
 训练数据分布
@@ -925,17 +887,15 @@ EER ≈ 0.30
 测试数据分布
 ```
 
-模型可能表现很好。
-
-真实部署则可能出现：
+并不代表：
 
 ```text
 部署数据分布
-≠
+≈
 训练数据分布
 ```
 
-因此引出：
+这进一步引出：
 
 ```text
 Domain Generalization
@@ -945,31 +905,21 @@ Unseen Attack Detection
 Robust Feature Learning
 ```
 
-等研究问题。
+### 10.10 如何理解 EER ≈ 0.03
 
----
-
-### 10.10 如何理解 EER = 0.03
-
-```text
-EER ≈ 0.03
-```
-
-说明数据增强和适配能够显著改善实验性能。
+`0.03` 表明适配能够显著改善实验表现。
 
 但不能写成：
 
 ```text
-真实生产环境错误率只有 3%
+生产环境错误率 = 3%
 ```
 
-三组 EER 来自不同实验条件。
+因为不同 EER 来自不同实验设置。
 
-真正重要的结论是：
+真正的结论是：
 
-> Benchmark 成功，并不等于真实世界部署可靠。
-
----
+> Benchmark 成功，并不等于真实部署可靠。
 
 ### 10.11 研究如何改变产品
 
@@ -981,7 +931,7 @@ CNN 判断
 最终结论
 ```
 
-而是：
+而采用：
 
 ```text
 CNN 声学证据
@@ -997,49 +947,27 @@ Gemma 推理
 可信人工核实
 ```
 
-从而把：
-
-```text
-模型研究
-```
-
-真正连接到了：
-
-```text
-AI 产品安全设计
-```
-
 ---
 
 ## 11. 当前部署策略
 
-当前公开 Demo 使用保守策略。
-
-研究实验和实际部署 checkpoint 应该分开理解。
-
-实验中的迁移学习和微调主要用于研究：
+当前原型采用：
 
 ```text
-Robustness
-Domain Shift
-Adaptation
-```
-
-系统部署则强调：
-
-```text
-稳定声学证据
+CNN 声学证据
 +
-语义证据
+Whisper 语义证据
 +
-证据来源
+诈骗信号
 +
-风险推理
+证据来源可信度
++
+Gemma / 本地推理
 +
 人工核实
 ```
 
-不采用：
+不会使用：
 
 ```text
 AI 伪造概率低
@@ -1054,14 +982,8 @@ AI 伪造概率低
 +
 证据来源不可靠
 =
-需要进一步核实
+需要继续核实
 ```
-
-系统目标不是让 AI 显得“非常确定”。
-
-而是：
-
-> 避免把不确定预测包装成绝对真相。
 
 ---
 
@@ -1076,15 +998,16 @@ AI 伪造概率低
 | 音频处理 | Torchaudio |
 | 音频读取 | SoundFile |
 | 音频转换 | FFmpeg |
-| 声学特征 | Log-Mel Spectrogram |
-| 伪造检测 | 自定义 CNN2D |
-| 语音识别 | Faster-Whisper |
-| 大模型推理 | Google Gemma |
+| 特征 | Log-Mel |
+| 伪造检测 | CNN2D |
+| ASR | Faster-Whisper |
+| LLM | Google Gemma |
 | API | Hugging Face Inference Client |
-| Demo 数据库 | 本地 JSON |
-| 消息通知 | 模拟短信 / 微信 / Push |
+| 国际化 | 中文 / English UI + Language-aware API |
+| Demo 数据库 | Local JSON |
+| 通知 | 模拟 SMS / 微信 / Push |
 | 部署 | Hugging Face Spaces |
-| 模型评估 | scikit-learn ROC / EER |
+| 评估 | scikit-learn ROC / EER |
 
 ---
 
@@ -1127,14 +1050,14 @@ AI-Voice-Safety-Agent/
 
 ## 14. 本地运行
 
-### 克隆项目
+### 克隆
 
 ```bash
 git clone https://github.com/lwenxuan420-lgtm/AI-Voice-Safety-Agent.git
 cd AI-Voice-Safety-Agent
 ```
 
-### 创建虚拟环境
+### 虚拟环境
 
 #### Windows
 
@@ -1157,9 +1080,10 @@ pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-建议依赖：
+建议：
 
 ```text
+numpy==1.26.4
 fastapi
 uvicorn[standard]
 python-multipart
@@ -1167,12 +1091,13 @@ torch
 torchaudio
 soundfile
 faster-whisper
-huggingface-hub
-numpy
+huggingface_hub>=0.31.0
 pandas
 scikit-learn
 tqdm
 ```
+
+> 当前固定使用 `numpy==1.26.4`，以保持 Hugging Face Spaces 部署环境与 PyTorch 的兼容性。
 
 ### FFmpeg
 
@@ -1188,11 +1113,11 @@ ffmpeg -version
 best_model.pth
 ```
 
-放在项目根目录。
+放在仓库根目录。
 
-### 配置 Gemma
+### Gemma
 
-#### Windows
+Windows：
 
 ```powershell
 $env:HF_TOKEN="your_hugging_face_token"
@@ -1200,7 +1125,7 @@ $env:GEMMA_MODEL_ID="google/gemma-4-26B-A4B-it"
 $env:GEMMA_PROVIDER="deepinfra"
 ```
 
-#### macOS / Linux
+macOS / Linux：
 
 ```bash
 export HF_TOKEN="your_hugging_face_token"
@@ -1208,7 +1133,7 @@ export GEMMA_MODEL_ID="google/gemma-4-26B-A4B-it"
 export GEMMA_PROVIDER="deepinfra"
 ```
 
-不配置 `HF_TOKEN` 时系统仍可运行，并使用本地保守推理。
+不配置 `HF_TOKEN` 时，系统使用本地保守推理。
 
 ### 启动
 
@@ -1222,30 +1147,11 @@ python app.py
 http://localhost:7860
 ```
 
-主要地址：
-
-```text
-/          首页
-/elder     老人端
-/helper    家属 / 社区端
-/health    系统状态
-```
-
 ---
 
 ## 15. 模型训练
 
-### 数据路径
-
-修改：
-
-```text
-train.py
-```
-
-中的本地路径。
-
-例如：
+修改 `train.py`：
 
 ```python
 ASV_ROOTS = [
@@ -1255,26 +1161,20 @@ ASV_ROOTS = [
 ASV_CSV = "path/to/train.csv"
 ```
 
-不要上传：
-
-- 私人绝对路径；
-- 未经许可的真实录音；
-- 受限制数据。
-
-### 训练流程
+训练流程：
 
 ```text
 音频
  ↓
 读取 Waveform
  ↓
-双声道 → 单声道
+Stereo → Mono
  ↓
-16 kHz 重采样
+16 kHz
  ↓
 波形标准化
  ↓
-补齐 / 截断
+Pad / Truncate
  ↓
 Log-Mel
  ↓
@@ -1295,20 +1195,17 @@ BCEWithLogitsLoss
 python train.py
 ```
 
-### 后续可复现性完善
+未来可复现版本应继续记录：
 
-未来应记录：
-
-- ASVspoof 具体子集；
-- protocol；
-- 随机种子；
-- train / validation / test；
-- 数据增强参数；
-- transfer learning 设置；
-- 网络冻结策略；
-- checkpoint 选择规则；
-- 不同信道结果；
-- cross-dataset 测试；
+- ASVspoof 子集；
+- Protocol；
+- Random Seed；
+- 数据划分；
+- 增强参数；
+- Transfer Learning 配置；
+- Freeze 策略；
+- Checkpoint 选择；
+- Cross-Dataset 测试；
 - 多次实验方差。
 
 ---
@@ -1318,9 +1215,9 @@ python train.py
 | 变量 | 是否必须 | 作用 |
 |---|---:|---|
 | `HF_TOKEN` | 否 | Hugging Face / Gemma |
-| `GEMMA_MODEL_ID` | 否 | Gemma Model ID |
+| `GEMMA_MODEL_ID` | 否 | Gemma Model |
 | `GEMMA_PROVIDER` | 否 | 推理 Provider |
-| `TORCH_NUM_THREADS` | 否 | CPU 线程 |
+| `TORCH_NUM_THREADS` | 否 | CPU Threads |
 | `PORT` | 否 | 应用端口 |
 
 默认：
@@ -1329,7 +1226,7 @@ python train.py
 7860
 ```
 
-可选通知变量：
+可选：
 
 ```text
 SMS_API_KEY
@@ -1338,66 +1235,51 @@ WECHAT_APP_SECRET
 PUSH_API_KEY
 ```
 
-当前公开 Demo 默认使用模拟通知。
-
 ---
 
 ## 17. 数据隐私与负责任使用
 
-### 科研数据
+项目使用 ASVspoof 研究数据和额外真实世界样本。
 
-项目使用 ASVspoof 研究数据，同时使用额外收集的真实世界样本完成鲁棒性实验。
-
-公开音频只应包含：
+公开音频只应包括：
 
 - 合成音频；
-- 明确开放许可音频；
-- 明确获得参与者授权的录音。
+- 开放许可音频；
+- 明确授权的录音。
 
-### 当前原型存储
+当前原型可能使用：
 
 ```text
 requests_db.json
 uploads/
 ```
 
-用于保存 Demo：
-
-- 用户；
-- Session；
-- 绑定申请；
-- 求助；
-- 通知；
-- 音频证据。
-
-只适合研究原型。
-
-### 真实上线需要
+生产环境需要：
 
 ```text
-安全身份认证
+安全认证
 传输加密
 存储加密
 权限控制
-密钥管理
-用户知情同意
+Secret Management
+知情同意
 数据保留政策
-用户删除能力
-审计日志
-滥用监控
+用户删除
+Audit Logging
+Abuse Monitoring
 安全对象存储
 生产数据库
 ```
 
-### 项目适用范围
+### 适用范围
 
 - AI Safety；
 - Deepfake Speech Detection；
 - Human-Centered AI；
 - 教育展示；
 - AI 应用工程；
-- 诈骗风险辅助判断；
-- 可信协助流程原型。
+- 诈骗风险辅助；
+- 可信协助流程。
 
 ### 不适用范围
 
@@ -1405,12 +1287,12 @@ uploads/
 
 - 监控；
 - 未授权身份追踪；
-- 未经许可的说话人识别；
+- 未经许可说话人识别；
 - 秘密录制；
-- 自动指控犯罪；
+- 自动犯罪指控；
 - 自动法律判断；
 - 自动金融判断；
-- 替代警方或银行；
+- 替代银行或警方；
 - 把 AI 分数当作真实性证明。
 
 ---
@@ -1419,40 +1301,41 @@ uploads/
 
 ### 模型
 
-- 未见伪造方式可能导致性能下降；
-- 麦克风重录可能改变伪造特征；
-- Replay Channel 可能产生 Domain Shift；
-- 压缩可能改变声学特征；
-- benchmark 结果不能直接代表部署性能。
+- 未见攻击可能降低性能；
+- 麦克风重录会改变伪造特征；
+- Replay Channel 造成 Domain Shift；
+- 压缩影响声学特征；
+- Benchmark 不能直接代表真实部署。
 
 ### Whisper
 
-- 噪声可能降低转录准确率；
-- 口音和音质会产生影响；
-- 错误文本可能影响后续推理。
+- 噪声影响转录；
+- 口音和音质可能产生影响；
+- 错误转录可能影响后续推理。
 
 ### Gemma
 
-- 依赖已有输入证据；
-- 错误转录可能影响推理；
+- 依赖输入证据；
+- 错误 transcript 会影响推理；
 - 不能作为法律或金融判断。
 
 ### 工程
 
-- JSON 数据库只适合 Demo；
+- JSON 只适合 Demo；
 - OTP 为演示流程；
-- 消息通知目前为模拟；
-- 上传音频当前保存在本地；
+- 消息通知为模拟；
+- 上传音频当前存于本地；
 - 尚未使用生产数据库；
-- CNN 分析固定窗口；
-- 目前不是完整实时电话监控服务。
+- CNN 分析固定音频窗口；
+- 目前不是完整实时通话监控服务。
 
 ### 产品
 
-- 当前 UI 以中文为主；
-- 需要更多老年用户测试；
+- 当前已经支持中文和 English；
+- 尚未支持更多语言；
+- 仍需要更大规模老人用户测试；
 - 需要正式 Accessibility 测试；
-- 紧急升级机制仍需进一步设计。
+- 生产级紧急升级机制仍需完善。
 
 ---
 
@@ -1479,8 +1362,8 @@ Robust Feature Learning
 ```text
 PostgreSQL / Supabase
 安全对象存储
-真实短信 / 微信 / Push
-后台任务队列
+真实 SMS / 微信 / Push
+后台任务
 Monitoring
 Logging
 自动化测试
@@ -1494,11 +1377,11 @@ Edge Deployment
 ### 产品
 
 ```text
-多语言界面
+在中文 / English 基础上扩展更多语言
 老人用户测试
 家属用户测试
 社区人员测试
-不确定性展示
+更清晰的不确定性展示
 紧急升级流程
 机构 Dashboard
 Permission-Controlled Function Calling
@@ -1508,9 +1391,7 @@ Permission-Controlled Function Calling
 
 ## 20. 项目体现的能力
 
-这个项目不仅记录模型训练。
-
-它展示了：
+这个项目展示了：
 
 ```text
 发现真实问题
@@ -1537,7 +1418,9 @@ Domain Gap 分析
       ↓
 大模型集成
       ↓
-Human-in-the-Loop Workflow
+中英文产品国际化
+      ↓
+Human-in-the-Loop
       ↓
 部署
 ```
@@ -1552,17 +1435,16 @@ Model Evaluation
 Backend Engineering
 API Integration
 LLM Reasoning
+Internationalization
 Workflow Design
 AI Safety
 Responsible AI
 Human-Centered Product Design
 ```
 
-项目最重要的成果并不是单一指标。
+项目最重要的成果不是单一指标，而是：
 
-而是：
-
-> 发现模型在哪里失效，理解为什么失效，并重新设计系统，使不确定性得到清晰表达，同时保留可信的人类参与。
+> 发现模型在哪里失效，理解为什么失效，并重新设计整个系统，使不确定性能够被清晰表达，同时保留可信的人类参与。
 
 ---
 
