@@ -383,7 +383,7 @@ is used instead.
 ### Home Page
 
 <p align="center">
-  <img src="assets/homepage.png"
+  <img src="assets/homepage-eg.png"
        alt="GemmaShield Home Page"
        width="92%">
 </p>
@@ -391,7 +391,7 @@ is used instead.
 ### Older-Adult Interface
 
 <p align="center">
-  <img src="assets/elder-interface.png"
+  <img src="assets/elder-interface-eg.png"
        alt="GemmaShield Older Adult Interface"
        width="92%">
 </p>
@@ -399,7 +399,7 @@ is used instead.
 ### Family / Community Helper Interface
 
 <p align="center">
-  <img src="assets/helper-interface.png"
+  <img src="assets/helper-interface-eg.png"
        alt="GemmaShield Family and Community Helper Interface"
        width="92%">
 </p>
