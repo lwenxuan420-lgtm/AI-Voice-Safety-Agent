@@ -60,6 +60,23 @@ torch.set_num_threads(int(os.getenv("TORCH_NUM_THREADS", "2")))
 
 app = FastAPI(title=APP_NAME)
 
+# =========================================================
+# Internationalization (Chinese / English)
+# =========================================================
+
+SUPPORTED_LANGS = {"zh", "en"}
+
+def normalize_lang(lang: str) -> str:
+    """Normalize UI / reasoning language. Chinese is the default."""
+    lang = str(lang or "zh").strip().lower()
+    if lang in {"en", "en-us", "en_us", "english"}:
+        return "en"
+    return "zh"
+
+
+def localized(lang: str, zh: str, en: str) -> str:
+    return en if normalize_lang(lang) == "en" else zh
+
 # Lazy model holders. This keeps /, /elder, /helper alive even before model loading.
 _cnn = None
 _mel = None
@@ -616,39 +633,57 @@ def format_signals(signals: List[str], lang: str = "zh") -> str:
 EVIDENCE_SOURCE_META = {
     "elder_recording": {
         "label_zh": "老人端现场录音",
+        "label_en": "Older-adult microphone recording",
         "confidence": "review",
         "confidence_zh": "需结合人工核实",
+        "confidence_en": "Human verification required",
         "note_zh": "该证据来自浏览器/麦克风现场保留，适合快速求助，但可能受到播放设备、距离和环境噪声影响，不建议仅凭声学分数判断。",
+        "note_en": "This evidence was captured through a browser or microphone. It is useful for rapid assistance, but playback devices, distance, room acoustics, and background noise may reduce acoustic reliability. Do not rely on the acoustic score alone.",
     },
     "elder_upload": {
         "label_zh": "老人端上传音频",
+        "label_en": "Older-adult uploaded audio",
         "confidence": "medium",
         "confidence_zh": "中等",
+        "confidence_en": "Medium",
         "note_zh": "该证据由老人端上传，通常比现场录音更稳定，但仍建议结合通话内容和家属核实。",
+        "note_en": "This evidence was uploaded by the older adult and is usually more stable than a live microphone re-recording. It should still be reviewed together with the conversation content and trusted-human verification.",
     },
     "wechat_voice": {
         "label_zh": "微信/社交软件语音",
+        "label_en": "Social-media voice message",
         "confidence": "medium",
         "confidence_zh": "中等",
+        "confidence_en": "Medium",
         "note_zh": "该证据可能经过社交软件压缩，适合判断话术风险，但声学判断仍需谨慎。",
+        "note_en": "This evidence may have been compressed by a social-media platform. It is useful for semantic risk analysis, but acoustic conclusions should be treated cautiously.",
     },
     "voicemail": {
         "label_zh": "语音留言",
+        "label_en": "Voicemail",
         "confidence": "medium",
         "confidence_zh": "中等",
+        "confidence_en": "Medium",
         "note_zh": "该证据来自语音留言，适合转录和风险话术分析。",
+        "note_en": "This evidence comes from voicemail and is suitable for transcription and scam-language analysis, while channel effects should still be considered.",
     },
     "call_recording": {
         "label_zh": "保存的通话录音",
+        "label_en": "Saved call recording",
         "confidence": "high",
         "confidence_zh": "较高",
+        "confidence_en": "Relatively high",
         "note_zh": "该证据来自已保存通话录音，通常比现场麦克风重录更适合声学分析。",
+        "note_en": "This evidence comes from a saved call recording and is generally more suitable for acoustic analysis than a live microphone re-recording, although telephone-channel effects remain.",
     },
     "helper_upload": {
         "label_zh": "家属/社区端上传音频",
+        "label_en": "Helper-uploaded audio",
         "confidence": "high",
         "confidence_zh": "较高",
+        "confidence_en": "Relatively high",
         "note_zh": "该证据由家属/社区端补充上传，适合进行 CNN + Whisper 分析。",
+        "note_en": "This evidence was uploaded by a trusted family or community helper and is suitable for CNN + Whisper analysis, subject to the quality of the original source.",
     },
 }
 
@@ -711,36 +746,96 @@ def quick_scan_audio(audio_path: str, audio_source: str = "helper_upload") -> Di
     level = risk_level(fake, text, source)
     scam = scam_type(text, fake)
     signals = extract_risk_signals(text)
+
+    # Store both languages so a saved request can be viewed after the user
+    # switches UI language without re-running CNN/Whisper.
     return {
         "fake": fake,
         "real": real,
         "transcript": text,
         "level": level,
         "level_label_zh": level_label(level, "zh"),
+        "level_label_en": level_label(level, "en"),
         "scam": scam,
         "scam_label_zh": scam_label(scam, "zh"),
+        "scam_label_en": scam_label(scam, "en"),
         "signals": signals,
         "signals_label_zh": format_signals(signals, "zh"),
+        "signals_label_en": format_signals(signals, "en"),
         "evidence_source": source,
         "evidence_source_label_zh": meta.get("label_zh"),
+        "evidence_source_label_en": meta.get("label_en"),
         "evidence_confidence": meta.get("confidence"),
         "evidence_confidence_zh": meta.get("confidence_zh"),
+        "evidence_confidence_en": meta.get("confidence_en"),
         "evidence_note_zh": meta.get("note_zh"),
+        "evidence_note_en": meta.get("note_en"),
         "processing_seconds": round(time.time() - start, 2),
         "scanned_at": now_str(),
     }
 
 
-def build_gemma_prompt(quick: Dict[str, Any], elder_name: str = "老人") -> str:
+def build_gemma_prompt(
+    quick: Dict[str, Any],
+    elder_name: str = "老人",
+    lang: str = "zh",
+) -> str:
+    lang = normalize_lang(lang)
     fake = quick.get("fake", 0.0)
     real = quick.get("real", 0.0)
     text = quick.get("transcript", "")
     level = quick.get("level", "MEDIUM")
     scam = quick.get("scam", "unknown or unclear risk")
     signals = quick.get("signals", [])
-    source_label = quick.get("evidence_source_label_zh", "未知来源")
-    confidence_label = quick.get("evidence_confidence_zh", "中等")
-    evidence_note = quick.get("evidence_note_zh", "请结合家属核实。")
+
+    if lang == "en":
+        source_label = quick.get("evidence_source_label_en") or quick.get("evidence_source_label_zh") or "Unknown source"
+        confidence_label = quick.get("evidence_confidence_en") or "Medium"
+        evidence_note = quick.get("evidence_note_en") or "Please verify the caller's identity with a trusted person."
+
+        return f"""
+You are Gemma 4, the risk-reasoning assistant in a voice-scam safety system designed to support older adults.
+
+Respond only in English.
+Keep the explanation concise, clear, calm, and easy to understand.
+Do not repeat the full transcript.
+Do not say "I am an AI model."
+Do not mention APIs, fallback logic, or service availability.
+Do not exaggerate system capabilities and do not claim that the system is connected to a real telephone network.
+
+Important positioning:
+- The CNN provides supporting acoustic evidence only; it is not the final judge.
+- Whisper provides transcript evidence.
+- Gemma 4 combines acoustic evidence, transcript evidence, scam-behavior signals, and source reliability to produce a risk explanation and practical advice.
+- Do not describe Gemma 4 as "correcting" the CNN.
+- If the evidence is a live microphone re-recording or compressed social-media audio, remind the helper to verify identity through an independent trusted channel. Do not label the call "safe" based on one acoustic score.
+
+Input:
+- Older adult: {elder_name}
+- Real-speech probability: {real:.2f}
+- AI-spoof probability: {fake:.2f}
+- Detector risk level: {level_label(level, "en")}
+- Evidence source: {source_label}
+- Evidence confidence: {confidence_label}
+- Evidence-use note: {evidence_note}
+- Risk-type hint: {scam_label(scam, "en")}
+- Risk signals: {format_signals(signals, "en")}
+- Original transcript: {text[:450]}
+
+Return exactly this structure:
+
+1. Risk Level:
+2. Why This May Be Risky:
+3. Acoustic Evidence:
+4. Textual Evidence:
+5. Advice for the Older Adult:
+6. Advice for the Family / Community Helper:
+7. One-Sentence Warning:
+""".strip()
+
+    source_label = quick.get("evidence_source_label_zh") or "未知来源"
+    confidence_label = quick.get("evidence_confidence_zh") or "中等"
+    evidence_note = quick.get("evidence_note_zh") or "请结合家属核实。"
 
     return f"""
 你是 Gemma 4，一个面向老年人 AI 语音诈骗防护系统的风险推理助手。
@@ -755,9 +850,9 @@ def build_gemma_prompt(quick: Dict[str, Any], elder_name: str = "老人") -> str
 重要定位：
 CNN 只提供声音层面的辅助证据，不是最终裁判。
 Whisper 提供通话文本证据。
-Gemma 4 负责综合声音证据、文本证据、诈骗行为信号，生成风险解释和行动建议。
+Gemma 4 负责综合声音证据、文本证据、诈骗行为信号和证据来源可靠性，生成风险解释和行动建议。
 不要把 Gemma 4 表述为“修正 CNN”。
-如果音频来自现场麦克风录音或社交软件压缩来源，请提醒家属结合身份核实；不要直接用“安全”盖棺定论。
+如果音频来自现场麦克风录音或社交软件压缩来源，请提醒家属结合独立渠道进行身份核实；不要直接用“安全”盖棺定论。
 
 输入信息：
 - 老人：{elder_name}
@@ -769,7 +864,7 @@ Gemma 4 负责综合声音证据、文本证据、诈骗行为信号，生成风
 - 证据使用提醒：{evidence_note}
 - 风险类型提示：{scam_label(scam, "zh")}
 - 风险信号：{format_signals(signals, "zh")}
-- 语音转录：{text[:450]}
+- 原始语音转录：{text[:450]}
 
 请严格按下面格式输出：
 
@@ -783,21 +878,63 @@ Gemma 4 负责综合声音证据、文本证据、诈骗行为信号，生成风
 """.strip()
 
 
-def local_safety_reasoning(quick: Dict[str, Any], elder_name: str = "老人") -> str:
+def local_safety_reasoning(
+    quick: Dict[str, Any],
+    elder_name: str = "老人",
+    lang: str = "zh",
+) -> str:
+    lang = normalize_lang(lang)
     fake = quick.get("fake", 0.0)
     real = quick.get("real", 0.0)
     text = quick.get("transcript", "")
     level = quick.get("level", "MEDIUM")
     scam = quick.get("scam", "unknown or unclear risk")
     signals = quick.get("signals", [])
-    source_label = quick.get("evidence_source_label_zh", "未知来源")
-    confidence_label = quick.get("evidence_confidence_zh", "中等")
-    evidence_note = quick.get("evidence_note_zh", "请结合家属核实。")
+
+    if lang == "en":
+        source_label = quick.get("evidence_source_label_en") or "Unknown source"
+        confidence_label = quick.get("evidence_confidence_en") or "Medium"
+        evidence_note = quick.get("evidence_note_en") or "Verify the caller's identity through an independent trusted channel."
+
+        if level == "HIGH":
+            why = "The call contains strong risk indicators. The acoustic evidence and/or transcript includes signs such as synthetic speech, money-transfer requests, verification codes, or urgent pressure."
+            elder_advice = "Stop following the caller's instructions. Do not transfer money or provide verification codes, bank details, passwords, or identity information. End the call and contact a trusted family or community helper."
+            helper_advice = "Verify the situation using an official phone number, the bank's official channel, or an independent trusted contact. Do not simply call back the suspicious number."
+            warning = "This call may be high risk. Stop the requested action and verify it with someone you trust."
+        elif level == "MEDIUM":
+            why = "The call contains some risk. The acoustic evidence is uncertain and/or the transcript contains suspicious signals that require further verification."
+            elder_advice = "Do not immediately trust the caller, transfer money, or provide personal information. Ask a trusted helper to verify the situation first."
+            helper_advice = "Review the transcript and independently verify the caller's identity, purpose, and any request involving money or verification codes."
+            warning = "Verify the caller's identity before continuing."
+        elif level == "VERIFY":
+            why = "No strong high-risk phrase was detected and the acoustic score does not show strong spoof evidence, but the evidence source is not reliable enough to justify a safe conclusion."
+            elder_advice = "Do not transfer money or provide verification codes until a trusted family or community helper confirms the caller's identity."
+            helper_advice = "Check the caller's number, contact the real family member through a known channel, and obtain a clearer original recording if possible."
+            warning = "The available evidence needs human verification before the call can be trusted."
+        else:
+            why = "The current audio has a relatively low spoof probability and the transcript does not contain an obvious money-transfer, verification-code, or urgent-pressure signal."
+            elder_advice = "The current risk appears lower, but stop and verify immediately if the caller later asks for money, verification codes, bank information, or passwords."
+            helper_advice = "Keep the record and remind the older adult that any request involving money or verification codes requires a second independent confirmation."
+            warning = "Even when current risk appears lower, always verify requests involving money or verification codes."
+
+        return f"""
+1. Risk Level: {level_label(level, "en")}
+2. Why This May Be Risky: {why}
+3. Acoustic Evidence: CNN estimated AI-spoof probability {fake:.2f} and real-speech probability {real:.2f}. This score is supporting acoustic evidence only. Evidence source: "{source_label}". Evidence confidence: "{confidence_label}". {evidence_note}
+4. Textual Evidence: Risk type: "{scam_label(scam, "en")}"; risk signals: "{format_signals(signals, "en")}". Original transcript excerpt: {text[:160]}
+5. Advice for the Older Adult: {elder_advice}
+6. Advice for the Family / Community Helper: {helper_advice}
+7. One-Sentence Warning: {warning}
+""".strip()
+
+    source_label = quick.get("evidence_source_label_zh") or "未知来源"
+    confidence_label = quick.get("evidence_confidence_zh") or "中等"
+    evidence_note = quick.get("evidence_note_zh") or "请结合家属核实。"
 
     if level == "HIGH":
         why = "该通话存在明显风险：声音证据或文本内容中出现了 AI 伪造、转账、验证码、紧急施压等高危信号。"
         elder_advice = "请立即停止按照对方要求操作，不要转账，不要提供验证码、银行卡号、密码或身份证信息。建议挂断后联系已绑定的家属或社区人员。"
-        helper_advice = "建议协助老人通过官方电话、银行官方渠道或线下社区人员核实，不要回拨可疑号码。"
+        helper_advice = "建议协助老人通过官方电话、银行官方渠道或独立的可信联系方式核实，不要直接回拨可疑号码。"
         warning = "这通电话风险较高，先停止操作，再找可信的人确认。"
     elif level == "MEDIUM":
         why = "该通话存在一定风险：声音证据不确定，或文本内容出现需要进一步核实的可疑信号。"
@@ -819,36 +956,56 @@ def local_safety_reasoning(quick: Dict[str, Any], elder_name: str = "老人") ->
 1. 风险等级：{level_label(level, "zh")}
 2. 为什么有风险：{why}
 3. 声音证据：CNN 输出 AI 伪造语音概率 {fake:.2f}，真实语音概率 {real:.2f}。该分数仅作为辅助声学证据。证据来源为「{source_label}」，证据置信度为「{confidence_label}」。{evidence_note}
-4. 文本证据：风险类型为「{scam_label(scam, "zh")}」；风险信号为「{format_signals(signals, "zh")}」。转录摘要：{text[:160]}
+4. 文本证据：风险类型为「{scam_label(scam, "zh")}」；风险信号为「{format_signals(signals, "zh")}」。原始转录摘要：{text[:160]}
 5. 给老人的建议：{elder_advice}
 6. 给家属/社区的处理建议：{helper_advice}
 7. 一句话提醒：{warning}
 """.strip()
 
 
-def analyze_with_gemma(quick: Dict[str, Any], elder_name: str = "老人") -> Dict[str, Any]:
+def analyze_with_gemma(
+    quick: Dict[str, Any],
+    elder_name: str = "老人",
+    lang: str = "zh",
+) -> Dict[str, Any]:
+    lang = normalize_lang(lang)
     client = get_gemma_client()
     if client is None:
-        report = local_safety_reasoning(quick, elder_name)
-        return {"source": "local_reasoning_no_hf_token", "report": report}
+        report = local_safety_reasoning(quick, elder_name, lang)
+        return {"source": "local_reasoning_no_hf_token", "report": report, "lang": lang}
     try:
-        prompt = build_gemma_prompt(quick, elder_name)
+        prompt = build_gemma_prompt(quick, elder_name, lang)
         response = client.chat_completion(
             messages=[{"role": "user", "content": prompt}],
-            max_tokens=420,
+            max_tokens=520,
             temperature=0.2,
         )
         report = response.choices[0].message.content.strip()
         if not report or len(report) < 20:
             raise ValueError("Gemma output too short")
-        return {"source": "gemma4_api", "report": report}
+        return {"source": "gemma4_api", "report": report, "lang": lang}
     except Exception as e:
         print("Gemma API failed:", repr(e))
-        report = local_safety_reasoning(quick, elder_name)
-        return {"source": "local_reasoning_gemma_error", "report": report, "error": repr(e)}
+        report = local_safety_reasoning(quick, elder_name, lang)
+        return {
+            "source": "local_reasoning_gemma_error",
+            "report": report,
+            "error": repr(e),
+            "lang": lang,
+        }
 
 
-def elder_simple_notice(level: str) -> str:
+def elder_simple_notice(level: str, lang: str = "zh") -> str:
+    lang = normalize_lang(lang)
+    if lang == "en":
+        if level == "HIGH":
+            return "High risk: Do not transfer money or provide verification codes, bank details, or passwords. Contact a trusted family or community helper immediately."
+        if level == "MEDIUM":
+            return "Caution: Verify the caller's identity first. Do not immediately transfer money or provide personal information. Ask a trusted helper to assist."
+        if level == "VERIFY":
+            return "Needs verification: No obvious high-risk signal was found, but the evidence source still requires human verification. Do not transfer money or provide verification codes before confirmation."
+        return "Relatively low risk: No obvious high-risk signal was found, but always verify requests involving money, verification codes, bank information, or passwords."
+
     if level == "HIGH":
         return "高风险：不要转账，不要提供验证码、银行卡号或密码。请立即联系已绑定的家属或社区人员。"
     if level == "MEDIUM":
@@ -927,7 +1084,427 @@ pre { white-space: pre-wrap; word-break: break-word; background: rgba(2,6,23,.55
 .simple-record-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .elder-records summary { cursor: pointer; font-size: 20px; font-weight: 900; color: #dbeafe; }
 @media (max-width: 860px) { .grid, .grid3, .pending-actions, .simple-record-grid { grid-template-columns: 1fr; } .hero h1 { font-size: 34px; } .nav, .row { flex-direction: column; align-items: stretch; } .elder-sos { font-size: 25px; min-height: 104px; } .code-box { font-size: 29px; letter-spacing: .16em; } }
+body.i18n-loading { visibility: hidden; }
+.nav-right { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: flex-end; }
+.lang-switch { display: flex; align-items: center; gap: 6px; padding: 4px; border: 1px solid rgba(147,197,253,.35); border-radius: 14px; background: rgba(15,23,42,.62); }
+.lang-switch button { width: auto; margin: 0; padding: 8px 11px; border-radius: 10px; background: transparent; border: 0; color: #bfdbfe; font-size: 14px; }
+.lang-switch button:hover, .lang-switch button.active { background: rgba(37,99,235,.7); color: white; }
+@media (max-width: 860px) { .nav-right { width: 100%; align-items: stretch; } .lang-switch { align-self: flex-start; } }
 """
+
+
+
+# Chinese -> English UI dictionary.
+# The app keeps one set of HTML/JavaScript templates and translates user-facing
+# DOM text at runtime, avoiding duplicated elder/helper pages.
+EN_REPLACEMENTS = {'首页': 'Home',
+ '老人端': 'Older Adult',
+ '家属/社区端': 'Family / Community',
+ '面向老年人的 AI 语音诈骗协助保护系统：老人端一键求助，系统自动通知已绑定的 3–5 位可信协助人；家属/社区端分两阶段完成 CNN + Whisper 证据分析与 Gemma 4 风险推理。': 'An AI voice-scam assistance system '
+                                                                                                      'for older adults: the older-adult '
+                                                                                                      'side can request help with one tap, '
+                                                                                                      'the system notifies 3–5 trusted '
+                                                                                                      'helpers, and the family/community '
+                                                                                                      'side performs two-stage CNN + '
+                                                                                                      'Whisper evidence analysis and Gemma '
+                                                                                                      '4 risk reasoning.',
+ '👵 老人端': '👵 Older Adult',
+ '首次由家人协助完成手机号设置，以后无需重复登录。系统自动同步守护状态，老人只需一键求助。': 'A family member can help complete the phone setup once. After that, the device remembers '
+                                                 'the session and the older adult can request help with one tap.',
+ '进入老人端': 'Open Older-Adult Side',
+ '👨\u200d👩\u200d👧 家属/社区端': '👨\u200d👩\u200d👧 Family / Community',
+ '手机号登录，输入老人端显示的 6 位连接数字，等待老人确认后处理求助。': 'Sign in with a phone number, enter the six-digit code shown on the older-adult side, and wait for '
+                                        'approval before handling assistance requests.',
+ '进入家属/社区端': 'Open Family / Community Side',
+ '👵 老人端：遇到可疑电话，一键找家人': '👵 Older Adult: Get Help with a Suspicious Call',
+ '不需要理解 AI 分数，也不需要每天登录。第一次由家人帮助完成设置，以后打开页面即可直接求助。': 'You do not need to understand AI scores or sign in every day. A family member can '
+                                                    'help with the first setup, and later you can open the page and request help directly.',
+ '首次设置': 'First-Time Setup',
+ '这不是身份证实名认证。只用手机号确认这是您的设备，通常由家人帮助完成一次即可。': 'This is not identity-card verification. The phone number is only used to confirm this device, '
+                                            'usually with one-time help from a family member.',
+ '比赛演示：快速进入老人账号': 'Demo: Quickly Open an Older-Adult Account',
+ '仅用于现场 Demo，不需要手动输入验证码。': 'For demonstration only; no manual verification-code entry is required.',
+ '怎么称呼您': 'How should we address you?',
+ '例如：刘奶奶（不需要填写身份证姓名）': 'Example: Mrs. Liu (legal name is not required)',
+ '您的手机号': 'Your Phone Number',
+ '例如：18800000001': 'Example: 18800000001',
+ '获取短信验证码': 'Get Verification Code',
+ '短信中的数字': 'Verification Code',
+ '请输入验证码': 'Enter the verification code',
+ '完成设置，进入老人端': 'Complete Setup and Continue',
+ '完成后设备会记住登录状态，下次无需重复操作。': 'The device will remember the session after setup, so you will not need to repeat this next time.',
+ '🚨 我遇到了可疑电话': '🚨 I Received a Suspicious Call',
+ '立即通知已经连接的家人': 'Notify My Trusted Helpers',
+ '守护状态会自动更新，不需要手动刷新': 'Protection status updates automatically; no manual refresh is needed.',
+ '需要保留声音证据吗？': 'Would you like to save audio evidence?',
+ '先点击上面的红色求助按钮，再任选一种方式。不会录音也没有关系，家人仍会收到求助。': 'First tap the red help button above, then choose either option. If you cannot record audio, '
+                                             'your trusted helpers will still receive the request.',
+ '🎙️ 录制 12 秒': '🎙️ Record 12 Seconds',
+ '📁 上传已有语音': '📁 Upload Existing Audio',
+ '上传微信语音、留言或通话录音': 'Upload a Social Voice Message, Voicemail, or Call Recording',
+ '微信/社交软件语音': 'Social-Media Voice Message',
+ '保存的通话录音': 'Saved Call Recording',
+ '语音留言': 'Voicemail',
+ '其他已有音频文件': 'Other Existing Audio File',
+ '上传这段语音': 'Upload This Audio',
+ '家属设置（通常由家人操作）': 'Trusted-Helper Settings (Usually Managed by Family)',
+ '更换老人账号': 'Switch Older-Adult Account',
+ '查看我的求助记录': 'View My Assistance History',
+ '手机号：': 'Phone: ',
+ '解除与此人的连接': 'Remove This Trusted Connection',
+ '有人想成为您的守护人': 'Someone Wants to Become Your Trusted Helper',
+ '只有认识并信任这个人时，才点击同意。陌生人请点击“我不认识”。': "Approve only if you know and trust this person. If the requester is unfamiliar, choose “I Don't Know "
+                                    'This Person.”',
+ '是我的家人，同意': 'I Know and Trust This Person',
+ '我不认识': "I Don't Know This Person",
+ '请再次确认：您认识并信任这个人吗？': 'Please confirm: do you know and trust this person?',
+ '确认拒绝这个陌生申请吗？': 'Reject this unfamiliar request?',
+ '暂时无法更新守护状态': 'Unable to update protection status right now',
+ '🚨 我遇到了可疑电话<span>请先让家人完成连接</span>': '🚨 I Received a Suspicious Call<span>Please connect a trusted helper first</span>',
+ '✅ 家人守护已开启': '✅ Trusted Protection Is Active',
+ '会收到您的求助。': ' will receive your assistance request.',
+ '当前已连接 ': 'Currently connected to ',
+ ' 位可信协助人。': ' trusted helper(s).',
+ '还没有连接家人': 'No Trusted Helper Connected Yet',
+ '请让家人在“家属/社区端”输入下面的 6 位数字。': 'Ask a trusted family or community helper to enter the six-digit code below on the Family / Community side.',
+ '这串数字只告诉自己的家人或可信社区工作人员，不要告诉陌生人。': 'Share this code only with your own family or a trusted community worker. Do not share it with '
+                                   'strangers.',
+ '，您好': ', hello',
+ '给家人的 6 位连接数字': 'Six-Digit Trusted-Helper Code',
+ '家人输入后，申请会自动出现在主页，不需要点击“刷新”。': 'After a trusted helper enters the code, the request will appear automatically. No manual refresh is '
+                                'needed.',
+ '已经连接的人': 'Connected Trusted Helpers',
+ '暂时没有连接任何人。': 'No trusted helper is connected yet.',
+ '守护状态已自动更新 · 不需要手动刷新': 'Protection status updated automatically · no manual refresh needed',
+ '网络暂时不稳定，系统稍后会自动重试': 'The network is temporarily unstable. The system will retry automatically.',
+ '确认解除与这个人的连接吗？解除后，对方将收不到新的求助。': 'Remove this trusted connection? This person will no longer receive new assistance requests.',
+ '已解除连接。': 'Connection removed.',
+ '还没有连接家人，请先让家人完成设置。': 'No trusted helper is connected yet. Please complete helper setup first.',
+ '正在通知家人，请稍等……': 'Notifying your trusted helpers. Please wait...',
+ '求助已经发出，已通知 ': 'Assistance request sent. Notified ',
+ ' 位家人。': ' trusted helper(s).',
+ '现在请不要转账，不要提供验证码、银行卡号或密码。需要时可在下方保留声音证据。': 'Do not transfer money or provide verification codes, bank details, or passwords. You can save '
+                                           'audio evidence below if needed.',
+ '求助发送失败：': 'Failed to send assistance request: ',
+ '已通知：': 'Notified: ',
+ '暂无': 'None',
+ '已保留声音证据。': 'Audio evidence saved.',
+ '证据来源：': 'Evidence Source: ',
+ '证据置信度：': 'Evidence Confidence: ',
+ '正在等待家人处理。': 'Waiting for a trusted helper to review the request.',
+ '暂无求助记录。': 'No assistance history yet.',
+ '请先点击上面的红色求助按钮，再开始录音。': 'Tap the red help button above before starting a recording.',
+ '正在上传录音……': 'Uploading recording...',
+ '录音已经保存，家人可以查看并处理。': 'Recording saved. Your trusted helper can now review it.',
+ '正在录制 12 秒。不要说出验证码、密码或银行卡号。': 'Recording for 12 seconds. Do not say verification codes, passwords, or bank details aloud.',
+ '录音失败：': 'Recording failed: ',
+ '请先点击上面的红色求助按钮，再上传语音。': 'Tap the red help button above before uploading audio.',
+ '请先选择一段语音。': 'Please select an audio file first.',
+ '正在上传语音……': 'Uploading audio...',
+ '语音已经保存，家人可以查看并处理。': 'Audio saved. Your trusted helper can now review it.',
+ '上传失败：': 'Upload failed: ',
+ '👨\u200d👩\u200d👧 家属/社区端：可信协助人网络': '👨\u200d👩\u200d👧 Family / Community: Trusted Helper Network',
+ '家属或社区工作人员输入老人端显示的 6 位连接数字并提交申请。老人确认后，求助会进入你的收件箱。': 'A family member or community worker enters the six-digit code shown on the '
+                                                     'older-adult side and submits a request. After approval, assistance requests will '
+                                                     'appear in your inbox.',
+ '手机号登录 / 注册协助人账号': 'Sign In / Register a Helper Account',
+ '姓名/身份，例如：女儿': 'Name / role, for example: Daughter',
+ '家属 family': 'Family',
+ '社区工作人员 community': 'Community Worker',
+ '志愿者 volunteer': 'Volunteer',
+ '手机号，例如：18800000002': 'Phone number, e.g. 18800000002',
+ '发送短信验证码': 'Send Verification Code',
+ '输入验证码': 'Enter Verification Code',
+ '登录协助人端': 'Sign In to Helper Side',
+ 'HF Demo 中验证码会显示在页面上；真实上线时接入短信服务商。': 'In the HF demo, the verification code is displayed on the page. A production deployment would use '
+                                      'an SMS provider.',
+ '绑定老人': 'Connect an Older Adult',
+ '输入老人端的 6 位数字，例如 438216': "Enter the older adult's six-digit code, e.g. 438216",
+ '发送连接申请': 'Send Connection Request',
+ '刷新': 'Refresh',
+ '我的待处理请求': 'My Pending Assistance Requests',
+ '两阶段风险分析': 'Two-Stage Risk Analysis',
+ '请选择一个请求。': 'Please select a request.',
+ '第一阶段：CNN + Whisper': 'Stage 1: CNN + Whisper',
+ '可以使用老人端保留证据，也可以由家属/社区端上传通话录音、语音留言或社交软件语音。系统会记录证据来源，并在风险结果中给出相应的核实提醒。': 'Use audio saved by the older adult or upload a call recording, '
+                                                                         'voicemail, or social-media voice message. The system records the '
+                                                                         'evidence source and provides source-aware verification guidance.',
+ '家属/社区端上传音频': 'Helper-Uploaded Audio',
+ '上传音频并执行 CNN + Whisper': 'Upload Audio and Run CNN + Whisper',
+ '使用老人端保留证据执行 CNN + Whisper': 'Run CNN + Whisper on Older-Adult Evidence',
+ '第二阶段：Gemma 4 API 风险推理': 'Stage 2: Gemma 4 Risk Reasoning',
+ 'Gemma 4 综合 CNN 声学证据、Whisper 文本证据和诈骗行为信号生成老人友好的建议。': 'Gemma 4 combines CNN acoustic evidence, Whisper transcript evidence, and '
+                                                      'scam-behavior signals to generate understandable safety guidance.',
+ '执行 Gemma 4 风险推理': 'Run Gemma 4 Risk Reasoning',
+ '解绑此老人': 'Disconnect This Older Adult',
+ '等待老人确认': 'Waiting for Older-Adult Approval',
+ '申请时间：': 'Requested at: ',
+ '绑定申请已发送到老人端。老人确认后，你才会正式成为协助人。': 'The connection request was sent to the older-adult side. You will become a trusted helper only after '
+                                  'approval.',
+ '登录失效': 'Session expired',
+ '当前协助人：': 'Current Helper: ',
+ '已绑定老人：': 'Connected Older Adults: ',
+ '还没有正式绑定老人。请输入老人端显示的家庭守护绑定码，并等待老人端确认。': 'No older adult is connected yet. Enter the six-digit trusted-helper code and wait for approval.',
+ '暂无待确认绑定申请。': 'No pending connection requests.',
+ '确认解除与这个老人的绑定吗？': 'Disconnect from this older adult?',
+ '发起求助': ' requested help',
+ '有老人端证据': 'Older-Adult Evidence Available',
+ '等待音频': 'Waiting for Audio',
+ '选择处理': 'Select',
+ '暂无待处理请求。': 'No pending assistance requests.',
+ '当前处理请求：': 'Current Request: ',
+ 'CNN 声学辅助证据：': 'CNN Acoustic Evidence: ',
+ 'AI伪造概率 ': 'AI-spoof probability ',
+ '，真实语音概率 ': ', real-speech probability ',
+ '未知': 'Unknown',
+ '中等': 'Medium',
+ '证据使用提醒：': 'Evidence Note: ',
+ '请结合家属/社区人员核实。': 'Please verify with a trusted family or community helper.',
+ 'Whisper 转录：': 'Whisper Transcript: ',
+ '风险类型：': 'Risk Type: ',
+ '风险信号：': 'Risk Signals: ',
+ '处理时间：': 'Processing Time: ',
+ ' 秒': ' s',
+ 'Gemma 4 风险推理': 'Gemma 4 Risk Reasoning',
+ '来源：': 'Source: ',
+ '请先选择一个请求。': 'Please select a request first.',
+ '请先选择音频文件。': 'Please select an audio file first.',
+ '正在执行 CNN + Whisper，请稍等...': 'Running CNN + Whisper. Please wait...',
+ '正在使用老人端证据执行 CNN + Whisper，请稍等...': 'Running CNN + Whisper on older-adult evidence. Please wait...',
+ '正在调用 Gemma 4 API 生成风险推理...': 'Generating Gemma 4 risk reasoning...',
+ '比赛 Demo 验证码：': 'Demo verification code: ',
+ 'Demo 验证码：': 'Demo verification code: ',
+ '（真实上线时通过短信发送）': ' (sent by SMS in production)',
+ '验证码已生成。HF Demo 中直接显示验证码；真实上线时由短信服务商发送。': 'Verification code generated. It is displayed directly in the HF demo; a production deployment '
+                                           'would send it through an SMS provider.',
+ '请输入有效手机号': 'Please enter a valid phone number',
+ '请先发送验证码': 'Please request a verification code first',
+ '验证码已过期，请重新发送': 'The verification code has expired. Please request a new one.',
+ '验证码错误': 'Incorrect verification code',
+ '该手机号已注册为另一种角色。Demo 中请使用另一个手机号。': 'This phone number is already registered with another role. Please use another number in the demo.',
+ '请输入老人端显示的 6 位连接数字': 'Enter the six-digit connection code shown on the older-adult side',
+ '连接数字应为 6 位': 'The connection code must contain six digits',
+ '协助人账号不存在，请重新登录': 'Helper account not found. Please sign in again.',
+ '没有找到该绑定码对应的老人账号': 'No older-adult account was found for this connection code',
+ '绑定申请已发送给 ': 'Connection request sent to ',
+ '，请等待老人端确认。': '. Please wait for older-adult approval.',
+ '绑定申请不存在': 'Connection request not found',
+ '你无权处理这个绑定申请': 'You do not have permission to process this connection request',
+ '申请人账号不存在，已自动拒绝': 'Requester account not found; the request was automatically rejected',
+ '已拒绝该绑定申请。': 'Connection request rejected.',
+ '成为你的可信协助人。': ' is now your trusted helper.',
+ '缺少 helper_id': 'Missing helper_id',
+ '已解绑该协助人': 'Trusted helper disconnected',
+ '缺少 elder_id': 'Missing elder_id',
+ '已解除与该老人的绑定': 'Disconnected from the older adult',
+ '还没有绑定协助人，请先绑定。': 'No trusted helper is connected yet. Please connect one first.',
+ '请求不存在': 'Request not found',
+ '你无权查看该请求': 'You do not have permission to view this request',
+ '你无权上传该请求证据': 'You do not have permission to upload evidence for this request',
+ '你无权处理该请求': 'You do not have permission to process this request',
+ '没有可用音频。请上传录音，或先让老人端保留证据。': 'No audio is available. Upload a recording or ask the older-adult side to save audio evidence first.',
+ 'CNN + Whisper 扫描失败：': 'CNN + Whisper scan failed: ',
+ '请先完成第一阶段 CNN + Whisper 扫描': 'Complete Stage 1 CNN + Whisper analysis first',
+ '高风险': 'High Risk',
+ '谨慎': 'Caution',
+ '需核实': 'Needs Verification',
+ '相对安全': 'Relatively Safe',
+ 'AI 语音伪造风险': 'AI voice spoofing risk',
+ '金融或投资诈骗风险': 'financial or investment scam',
+ '冒充亲属诈骗风险': 'family impersonation scam',
+ '验证码诈骗风险': 'verification-code scam',
+ '未知或不明确风险': 'unknown or unclear risk',
+ '转账/资金相关信号': 'money-transfer / financial signal',
+ '验证码/密码相关信号': 'verification-code / password signal',
+ '紧急施压信号': 'urgency-pressure signal',
+ '冒充亲属信号': 'family-impersonation signal',
+ '投资收益诱导信号': 'investment-profit signal',
+ '未发现明显关键词风险信号': 'no obvious keyword risk signal',
+ '需结合人工核实': 'Human verification required',
+ '较高': 'Relatively high',
+ '老人端现场录音': 'Older-adult microphone recording',
+ '老人端上传音频': 'Older-adult uploaded audio',
+ '该证据来自浏览器/麦克风现场保留，适合快速求助，但可能受到播放设备、距离和环境噪声影响，不建议仅凭声学分数判断。': 'This evidence was captured through a browser or microphone. Playback '
+                                                             'devices, distance, and background noise may reduce acoustic reliability; do '
+                                                             'not rely on the acoustic score alone.',
+ '该证据由老人端上传，通常比现场录音更稳定，但仍建议结合通话内容和家属核实。': 'This evidence was uploaded by the older adult and is usually more stable than a live microphone '
+                                          'recording, but it should still be combined with conversation content and trusted-human '
+                                          'verification.',
+ '该证据可能经过社交软件压缩，适合判断话术风险，但声学判断仍需谨慎。': 'This evidence may have been compressed by a social-media platform. It is useful for semantic risk '
+                                      'analysis, but acoustic conclusions should be treated cautiously.',
+ '该证据来自语音留言，适合转录和风险话术分析。': 'This evidence comes from voicemail and is suitable for transcription and scam-language analysis.',
+ '该证据来自已保存通话录音，通常比现场麦克风重录更适合声学分析。': 'This evidence comes from a saved call recording and is generally more suitable for acoustic analysis '
+                                    'than a live microphone re-recording.',
+ '该证据由家属/社区端补充上传，适合进行 CNN + Whisper 分析。': 'This evidence was uploaded by a trusted helper and is suitable for CNN + Whisper analysis.'}
+
+LANGUAGE_JS = r"""
+<script>
+(function() {
+  const EN_MAP = __EN_MAP__;
+  const SORTED_EN_KEYS = Object.keys(EN_MAP).sort((a, b) => b.length - a.length);
+
+  function normalizeLang(value) {
+    value = String(value || '').toLowerCase();
+    return value.startsWith('en') ? 'en' : 'zh';
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  const queryLang = params.get('lang');
+  const savedLang = localStorage.getItem('gemmashield_lang');
+  const initialLang = normalizeLang(queryLang || savedLang || 'zh');
+
+  window.GEMMASHIELD_LANG = initialLang;
+  localStorage.setItem('gemmashield_lang', initialLang);
+  document.documentElement.lang = initialLang === 'en' ? 'en' : 'zh-CN';
+
+  window.setAppLanguage = function(lang) {
+    lang = normalizeLang(lang);
+    localStorage.setItem('gemmashield_lang', lang);
+    const url = new URL(window.location.href);
+    url.searchParams.set('lang', lang);
+    window.location.href = url.toString();
+  };
+
+  window.gsTranslate = function(value) {
+    if (window.GEMMASHIELD_LANG !== 'en' || value === null || value === undefined) return value;
+    let out = String(value);
+    for (const key of SORTED_EN_KEYS) {
+      if (out.includes(key)) out = out.split(key).join(EN_MAP[key]);
+    }
+    return out;
+  };
+
+  window.gsQ = function(q, base) {
+    if (!q) return '';
+    const lang = window.GEMMASHIELD_LANG === 'en' ? 'en' : 'zh';
+    return q[`${base}_${lang}`] ?? q[`${base}_zh`] ?? q[base] ?? '';
+  };
+
+  window.gsGemmaResult = function(requestObj) {
+    if (!requestObj) return null;
+    if (window.GEMMASHIELD_LANG === 'en') {
+      return requestObj.gemma_result_en || null;
+    }
+    return requestObj.gemma_result_zh || requestObj.gemma_result || null;
+  };
+
+  window.gsElderSimpleResult = function(requestObj) {
+    if (!requestObj) return '';
+    if (window.GEMMASHIELD_LANG === 'en') {
+      return requestObj.elder_simple_result_en || window.gsTranslate(requestObj.elder_simple_result || '');
+    }
+    return requestObj.elder_simple_result_zh || requestObj.elder_simple_result || '';
+  };
+
+  function shouldSkip(node) {
+    const parent = node && (node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement);
+    return !!(parent && parent.closest && parent.closest('[data-no-i18n="true"]'));
+  }
+
+  function translateElement(el) {
+    if (!el || shouldSkip(el)) return;
+    if (el.nodeType === Node.TEXT_NODE) {
+      const original = el.nodeValue;
+      const translated = window.gsTranslate(original);
+      if (translated !== original) el.nodeValue = translated;
+      return;
+    }
+    if (el.nodeType !== Node.ELEMENT_NODE) return;
+
+    for (const attr of ['placeholder', 'title', 'aria-label']) {
+      if (el.hasAttribute && el.hasAttribute(attr)) {
+        const original = el.getAttribute(attr);
+        const translated = window.gsTranslate(original);
+        if (translated !== original) el.setAttribute(attr, translated);
+      }
+    }
+
+    for (const child of Array.from(el.childNodes || [])) translateElement(child);
+  }
+
+  function translateDocument() {
+    if (window.GEMMASHIELD_LANG === 'en') {
+      translateElement(document.body);
+      const helperName = document.getElementById('helperName');
+      if (helperName && helperName.value === '女儿') helperName.value = 'Daughter';
+    }
+    document.body.classList.remove('i18n-loading');
+
+    // Keep the selected language when moving between app pages.
+    for (const a of document.querySelectorAll('a[href^="/"]')) {
+      const href = a.getAttribute('href');
+      if (!href || href.startsWith('/api/')) continue;
+      try {
+        const u = new URL(href, window.location.origin);
+        u.searchParams.set('lang', window.GEMMASHIELD_LANG);
+        a.setAttribute('href', u.pathname + u.search + u.hash);
+      } catch (_) {}
+    }
+
+    document.querySelectorAll('[data-lang-button]').forEach(btn => {
+      const active = btn.getAttribute('data-lang-button') === window.GEMMASHIELD_LANG;
+      btn.classList.toggle('active', active);
+    });
+  }
+
+  // Translate runtime alerts and confirmation dialogs.
+  const nativeAlert = window.alert.bind(window);
+  window.alert = function(message) {
+    return nativeAlert(window.gsTranslate(message));
+  };
+
+  const nativeConfirm = window.confirm.bind(window);
+  window.confirm = function(message) {
+    return nativeConfirm(window.gsTranslate(message));
+  };
+
+  // Automatically attach the current language to API requests.
+  const nativeFetch = window.fetch.bind(window);
+  window.fetch = function(input, init) {
+    init = init ? {...init} : {};
+    let requestInput = input;
+
+    if (typeof requestInput === 'string' && requestInput.startsWith('/api/')) {
+      const u = new URL(requestInput, window.location.origin);
+      if (!u.searchParams.has('lang')) u.searchParams.set('lang', window.GEMMASHIELD_LANG);
+      requestInput = u.pathname + u.search + u.hash;
+    }
+
+    if (init.body instanceof FormData && !init.body.has('lang')) {
+      init.body.append('lang', window.GEMMASHIELD_LANG);
+    }
+
+    const headers = new Headers(init.headers || {});
+    const contentType = headers.get('Content-Type') || headers.get('content-type') || '';
+    if (typeof init.body === 'string' && contentType.includes('application/json')) {
+      try {
+        const payload = JSON.parse(init.body);
+        if (payload && typeof payload === 'object' && !Array.isArray(payload) && !payload.lang) {
+          payload.lang = window.GEMMASHIELD_LANG;
+          init.body = JSON.stringify(payload);
+        }
+      } catch (_) {}
+    }
+
+    return nativeFetch(requestInput, init);
+  };
+
+  document.addEventListener('DOMContentLoaded', () => {
+    translateDocument();
+
+    if (window.GEMMASHIELD_LANG === 'en') {
+      const observer = new MutationObserver((mutations) => {
+        for (const mutation of mutations) {
+          if (mutation.type === 'characterData') translateElement(mutation.target);
+          for (const node of Array.from(mutation.addedNodes || [])) translateElement(node);
+        }
+      });
+      observer.observe(document.body, {subtree: true, childList: true, characterData: true});
+    }
+  });
+})();
+</script>
+""".replace("__EN_MAP__", json.dumps(EN_REPLACEMENTS, ensure_ascii=False))
 
 
 def page_shell(title: str, body: str) -> str:
@@ -938,16 +1515,23 @@ def page_shell(title: str, body: str) -> str:
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>{title}</title>
   <style>{CSS}</style>
+  {LANGUAGE_JS}
 </head>
-<body>
+<body class="i18n-loading">
   <div class="container">
     <div class="nav">
       <div class="brand">🛡️ GemmaShield</div>
-      <div class="navlinks">
-        <a href="/">首页</a>
-        <a href="/elder">老人端</a>
-        <a href="/helper">家属/社区端</a>
-        <a href="/health">Health</a>
+      <div class="nav-right">
+        <div class="navlinks">
+          <a href="/">首页</a>
+          <a href="/elder">老人端</a>
+          <a href="/helper">家属/社区端</a>
+          <a href="/health">Health</a>
+        </div>
+        <div class="lang-switch" aria-label="Language">
+          <button type="button" data-lang-button="zh" onclick="setAppLanguage('zh')">中文</button>
+          <button type="button" data-lang-button="en" onclick="setAppLanguage('en')">English</button>
+        </div>
       </div>
     </div>
     {body}
@@ -1073,7 +1657,10 @@ async function apiJSON(url, data) {
 }
 
 function relationshipLabel(value) {
-  return {family:'家人', community:'社区工作人员', volunteer:'志愿者'}[value] || '可信协助人';
+  const zh = {family:'家人', community:'社区工作人员', volunteer:'志愿者'};
+  const en = {family:'Family', community:'Community Worker', volunteer:'Volunteer'};
+  const table = window.GEMMASHIELD_LANG === 'en' ? en : zh;
+  return table[value] || (window.GEMMASHIELD_LANG === 'en' ? 'Trusted Helper' : '可信协助人');
 }
 
 function showLogin() {
@@ -1290,13 +1877,18 @@ async function createHelpRequest() {
 
 function requestHTML(r) {
   const q = r.quick_result;
-  const g = r.gemma_result;
+  const g = window.gsGemmaResult(r);
+  const simple = window.gsElderSimpleResult(r);
+  const levelLabel = q ? window.gsQ(q, 'level_label') : '';
+  const sourceLabel = q ? window.gsQ(q, 'evidence_source_label') : '';
+  const confidenceLabel = q ? window.gsQ(q, 'evidence_confidence') : '';
+
   return `<div class="list-item">
     <b>${r.created_at}</b> <span class="badge">${r.status}</span><br>
     <span class="small">已通知：${(r.notified_helper_names || []).join('、') || '暂无'}</span>
     ${r.elder_audio_path ? '<p class="good">已保留声音证据。</p>' : ''}
-    ${q ? `<p class="warning">${q.level_label_zh}：${r.elder_simple_result || ''}</p><p class="small">证据来源：${q.evidence_source_label_zh || '未知'} | 证据置信度：${q.evidence_confidence_zh || '中等'}</p>` : '<p class="muted">正在等待家人处理。</p>'}
-    ${g ? `<pre>${g.report}</pre>` : ''}
+    ${q ? `<p class="warning">${levelLabel}：${simple}</p><p class="small">证据来源：${sourceLabel || '未知'} | 证据置信度：${confidenceLabel || '中等'}</p>` : '<p class="muted">正在等待家人处理。</p>'}
+    ${g ? `<pre data-no-i18n="true">${g.report}</pre>` : ''}
   </div>`;
 }
 
@@ -1534,11 +2126,13 @@ async function unbindElder(elderId) {
 }
 
 function reqHTML(r) {
+  const q = r.quick_result;
+  const levelLabel = q ? window.gsQ(q, 'level_label') : '';
   return `<div class="list-item">
     <b>${r.elder_name}</b> 发起求助 <span class="badge">${r.status}</span><br>
     <span class="small">${r.request_id} | ${r.created_at}</span><br>
     ${r.elder_audio_path ? '<span class="badge">有老人端证据</span>' : '<span class="badge">等待音频</span>'}
-    ${r.quick_result ? `<span class="badge">${r.quick_result.level_label_zh}</span>` : ''}
+    ${q ? `<span class="badge">${levelLabel}</span>` : ''}
     <button onclick="selectRequest('${r.request_id}')">选择处理</button>
   </div>`;
 }
@@ -1569,19 +2163,30 @@ async function loadRequestDetail() {
 function renderResults(r) {
   if (r.quick_result) {
     const q = r.quick_result;
+    const levelLabel = window.gsQ(q, 'level_label');
+    const sourceLabel = window.gsQ(q, 'evidence_source_label');
+    const confidenceLabel = window.gsQ(q, 'evidence_confidence');
+    const evidenceNote = window.gsQ(q, 'evidence_note');
+    const scamLabel = window.gsQ(q, 'scam_label');
+    const signalsLabel = window.gsQ(q, 'signals_label');
+
     document.getElementById('quickResult').innerHTML = `<div class="list-item">
-      <h3>${q.level_label_zh}</h3>
+      <h3>${levelLabel}</h3>
       <p><b>CNN 声学辅助证据：</b>AI伪造概率 ${q.fake.toFixed(2)}，真实语音概率 ${q.real.toFixed(2)}</p>
-      <p><b>证据来源：</b>${q.evidence_source_label_zh || '未知'} | <b>证据置信度：</b>${q.evidence_confidence_zh || '中等'}</p>
-      <p class="muted"><b>证据使用提醒：</b>${q.evidence_note_zh || '请结合家属/社区人员核实。'}</p>
-      <p><b>Whisper 转录：</b>${q.transcript}</p>
-      <p><b>风险类型：</b>${q.scam_label_zh}</p>
-      <p><b>风险信号：</b>${q.signals_label_zh}</p>
+      <p><b>证据来源：</b>${sourceLabel || '未知'} | <b>证据置信度：</b>${confidenceLabel || '中等'}</p>
+      <p class="muted"><b>证据使用提醒：</b>${evidenceNote || '请结合家属/社区人员核实。'}</p>
+      <p><b>Whisper 转录：</b><span data-no-i18n="true">${q.transcript}</span></p>
+      <p><b>风险类型：</b>${scamLabel}</p>
+      <p><b>风险信号：</b>${signalsLabel}</p>
       <p class="small">处理时间：${q.processing_seconds} 秒</p>
     </div>`;
   }
-  if (r.gemma_result) {
-    document.getElementById('gemmaResult').innerHTML = `<div class="list-item"><h3>Gemma 4 风险推理</h3><p class="small">来源：${r.gemma_result.source}</p><pre>${r.gemma_result.report}</pre></div>`;
+
+  const g = window.gsGemmaResult(r);
+  if (g) {
+    document.getElementById('gemmaResult').innerHTML = `<div class="list-item"><h3>Gemma 4 风险推理</h3><p class="small">来源：${g.source}</p><pre data-no-i18n="true">${g.report}</pre></div>`;
+  } else {
+    document.getElementById('gemmaResult').innerHTML = '';
   }
 }
 
@@ -1998,7 +2603,11 @@ def create_help_request(payload: Dict[str, Any]):
         "audio_source": None,
         "quick_result": None,
         "gemma_result": None,
+        "gemma_result_zh": None,
+        "gemma_result_en": None,
         "elder_simple_result": None,
+        "elder_simple_result_zh": None,
+        "elder_simple_result_en": None,
         "notification_ids": [],
     }
     sent = dispatch_notifications(db, rid, elder, helper_ids)
@@ -2089,6 +2698,7 @@ def quick_scan(
     token: str = Form(...),
     request_id: str = Form(...),
     source_type: str = Form(""),
+    lang: str = Form("zh"),
     audio: Optional[UploadFile] = File(None),
 ):
     user = auth_user(token)
@@ -2121,9 +2731,16 @@ def quick_scan(
         print("quick_scan failed:", repr(e))
         raise HTTPException(status_code=500, detail=f"CNN + Whisper 扫描失败：{repr(e)}")
 
+    lang = normalize_lang(lang)
     req["quick_result"] = quick
     req["status"] = "quick_scanned_waiting_for_gemma"
-    req["elder_simple_result"] = elder_simple_notice(quick["level"])
+
+    # Keep both languages so switching the UI never requires re-running the CNN.
+    req["elder_simple_result_zh"] = elder_simple_notice(quick["level"], "zh")
+    req["elder_simple_result_en"] = elder_simple_notice(quick["level"], "en")
+    req["elder_simple_result"] = (
+        req["elder_simple_result_en"] if lang == "en" else req["elder_simple_result_zh"]
+    )
     req["updated_at"] = now_str()
     db["requests"][request_id] = req
     save_db(db)
@@ -2134,27 +2751,56 @@ def quick_scan(
 def gemma_reason(payload: Dict[str, Any]):
     user = auth_user(payload.get("token"))
     request_id = payload.get("request_id")
+    lang = normalize_lang(payload.get("lang", "zh"))
+
     db = load_db()
     req = db["requests"].get(request_id)
     if not req:
-        raise HTTPException(status_code=404, detail="请求不存在")
+        raise HTTPException(status_code=404, detail=localized(lang, "请求不存在", "Request not found"))
     if not can_access_request(user, req):
-        raise HTTPException(status_code=403, detail="你无权处理该请求")
+        raise HTTPException(
+            status_code=403,
+            detail=localized(lang, "你无权处理该请求", "You do not have permission to process this request"),
+        )
     if not req.get("quick_result"):
-        raise HTTPException(status_code=400, detail="请先完成第一阶段 CNN + Whisper 扫描")
+        raise HTTPException(
+            status_code=400,
+            detail=localized(
+                lang,
+                "请先完成第一阶段 CNN + Whisper 扫描",
+                "Please complete Stage 1 CNN + Whisper analysis first",
+            ),
+        )
 
     elder = db["users"].get(req.get("elder_id"), {})
-    result = analyze_with_gemma(req["quick_result"], elder.get("display_name", "老人"))
-    req["gemma_result"] = {
+    elder_name = elder.get("display_name", "老人" if lang == "zh" else "Older adult")
+    result = analyze_with_gemma(req["quick_result"], elder_name, lang)
+
+    gemma_payload = {
         "source": result.get("source"),
         "report": result.get("report"),
         "error": result.get("error"),
+        "lang": lang,
         "created_at": now_str(),
     }
+
+    # Preserve the latest result for backward compatibility and also keep a
+    # language-specific copy so switching the UI never shows the wrong-language report.
+    req["gemma_result"] = gemma_payload
+    req[f"gemma_result_{lang}"] = gemma_payload
+
     req["status"] = "completed"
     req["updated_at"] = now_str()
-    # Keep elder side simple.
-    req["elder_simple_result"] = elder_simple_notice(req["quick_result"].get("level", "MEDIUM"))
+    req["elder_simple_result_zh"] = elder_simple_notice(
+        req["quick_result"].get("level", "MEDIUM"), "zh"
+    )
+    req["elder_simple_result_en"] = elder_simple_notice(
+        req["quick_result"].get("level", "MEDIUM"), "en"
+    )
+    req["elder_simple_result"] = (
+        req["elder_simple_result_en"] if lang == "en" else req["elder_simple_result_zh"]
+    )
+
     db["requests"][request_id] = req
     save_db(db)
     return {"ok": True, "request": enrich_request(req, db)}
@@ -2177,5 +2823,11 @@ def logout_all(payload: Dict[str, Any]):
 
 if __name__ == "__main__":
     import uvicorn
+
     port = int(os.environ.get("PORT", "7860"))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+
+    uvicorn.run(
+        app,
+        host="0.0.0.0",
+        port=port
+    )
